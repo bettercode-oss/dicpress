@@ -93,12 +93,6 @@ PORT=3001
 REPO_URL="https://github.com/bettercode-oss/dicpress.git"
 ```
 
-`ecosystem.config.js` 상단 config 블록의 `APP_NAME` 도 동일한 값으로 수정합니다.
-
-```bash
-nano ecosystem.config.js
-```
-
 `.env.production` 을 작성합니다. **setup.sh 실행 전에 반드시 완료해야 합니다.**
 
 ```bash
