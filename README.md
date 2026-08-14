@@ -86,7 +86,7 @@ nano deploy/project.conf
 ```
 
 ```bash
-APP_NAME="your-app-name"        # PM2 프로세스명으로 쓰입니다. 도메인 앞부분과 일치시키는 것을 권장합니다 (예: mysite)
+APP_NAME="your-app-name"        # Nginx 설정 파일 이름으로 쓰입니다. 도메인 앞부분과 일치시키는 것을 권장합니다 (예: mysite)
 DOMAIN="your-domain.example.com"
 DEPLOY_PATH="/var/www/your-domain.example.com"
 PORT=3001
