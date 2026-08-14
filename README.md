@@ -99,6 +99,13 @@ REPO_URL="https://github.com/bettercode-oss/dicpress.git"
 nano ecosystem.config.js
 ```
 
+`.env.production` 을 작성합니다. **setup.sh 실행 전에 반드시 완료해야 합니다.**
+
+```bash
+cp .env.production.example .env.production
+nano .env.production
+```
+
 세팅 스크립트를 실행합니다.
 
 ```bash
@@ -107,12 +114,13 @@ bash deploy/setup.sh
 
 스크립트가 다음을 순서대로 실행합니다.
 
-1. 앱 디렉토리 생성 및 리포 클론 (`DEPLOY_PATH` 로)
-2. `.env.production` 생성 후 **편집기 자동 실행** (값 입력 후 저장)
-3. 의존성 설치 및 빌드
+1. `.env.production` 파일 존재 여부 확인 (없으면 오류 후 종료)
+2. 앱 디렉토리 생성 및 리포 클론 (`DEPLOY_PATH` 로)
+3. 의존성 설치
 4. DB 마이그레이션 및 시드
-5. Nginx 설정 생성 및 적용
-6. PM2로 앱 시작
+5. 빌드
+6. Nginx 설정 생성 및 적용
+7. PM2로 앱 시작
 
 완료 후 임시 클론을 정리합니다.
 
