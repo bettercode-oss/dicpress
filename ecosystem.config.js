@@ -1,8 +1,9 @@
-// ── 프로젝트별 설정 ── 새 프로젝트 적용 시 이 블록만 수정하세요 ──
-const APP_NAME   = "dic";
-const DEPLOY_PATH = "/var/www/dic.bizos.kr";
-const PORT        = 3001;
-// ─────────────────────────────────────────────────────────────────
+// 인스턴스별 설정은 deploy/project.conf 에서 관리합니다.
+// setup.sh 가 project.conf 를 읽어 환경변수로 export 하므로
+// 이 파일을 직접 편집할 필요가 없습니다.
+const APP_NAME    = process.env.APP_NAME    || "dicpress";
+const DEPLOY_PATH = process.env.DEPLOY_PATH || "/var/www/dicpress";
+const PORT        = parseInt(process.env.PORT || "3001");
 
 module.exports = {
   apps: [
