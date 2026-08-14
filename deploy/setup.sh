@@ -5,21 +5,12 @@ set -euo pipefail
 
 # ── 프로젝트 설정 로드 ────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 # shellcheck source=deploy/project.conf
 source "$SCRIPT_DIR/project.conf"
 # ─────────────────────────────────────────────────────────────────────
 
-echo "▶ 앱 디렉토리 생성..."
-sudo mkdir -p "$DEPLOY_PATH"
-sudo chown "$USER:$USER" "$DEPLOY_PATH"
-
-echo "▶ GitHub에서 클론..."
-git clone "$REPO_URL" "$DEPLOY_PATH"
-cd "$DEPLOY_PATH"
-cp "$REPO_ROOT/.env.production" .env.production
-
 echo "▶ .env.production 확인..."
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 if [[ ! -f "$REPO_ROOT/.env.production" ]]; then
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -36,6 +27,15 @@ if [[ ! -f "$REPO_ROOT/.env.production" ]]; then
   echo ""
   exit 1
 fi
+
+echo "▶ 앱 디렉토리 생성..."
+sudo mkdir -p "$DEPLOY_PATH"
+sudo chown "$USER:$USER" "$DEPLOY_PATH"
+
+echo "▶ GitHub에서 클론..."
+git clone "$REPO_URL" "$DEPLOY_PATH"
+cd "$DEPLOY_PATH"
+cp "$REPO_ROOT/.env.production" .env.production
 
 echo "▶ 의존성 설치..."
 npm ci
