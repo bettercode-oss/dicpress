@@ -35,6 +35,10 @@ npm ci
 echo "▶ Prisma 클라이언트 생성..."
 npx prisma generate
 
+echo "▶ DB 마이그레이션 & 시드..."
+npx prisma migrate deploy
+npm run db:seed
+
 echo "▶ 빌드..."
 npm run build
 
@@ -44,10 +48,6 @@ cp -r .next/static .next/standalone/.next/static
 
 echo "▶ 업로드 디렉토리 및 로그 디렉토리 생성..."
 mkdir -p public/uploads logs
-
-echo "▶ DB 마이그레이션 & 시드..."
-npx prisma migrate deploy
-npm run db:seed
 
 echo "▶ Nginx 설정 생성..."
 export APP_NAME DOMAIN DEPLOY_PATH PORT
