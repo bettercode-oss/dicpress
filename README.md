@@ -69,13 +69,21 @@ npm run dev          # 개발 서버 시작
 - Nginx
 - SSL 인증서 (Let's Encrypt 권장)
 
-### 배포 설정
+### 초기 세팅 (최초 1회)
+
+서버에 repo가 아직 없으므로 임시 위치에 먼저 클론합니다.
+
+```bash
+git clone https://github.com/bettercode-oss/dicpress.git /tmp/dicpress
+cd /tmp/dicpress
+```
+
+`deploy/project.conf` 를 생성하고 편집합니다.
 
 ```bash
 cp deploy/project.conf.example deploy/project.conf
+nano deploy/project.conf
 ```
-
-`deploy/project.conf` 를 편집합니다.
 
 ```bash
 APP_NAME="dicpress"
@@ -87,7 +95,11 @@ REPO_URL="https://github.com/bettercode-oss/dicpress.git"
 
 `ecosystem.config.js` 상단 config 블록도 동일하게 수정합니다.
 
-### 초기 세팅 (최초 1회)
+```bash
+nano ecosystem.config.js
+```
+
+세팅 스크립트를 실행합니다.
 
 ```bash
 bash deploy/setup.sh
@@ -95,12 +107,18 @@ bash deploy/setup.sh
 
 스크립트가 다음을 순서대로 실행합니다.
 
-1. 앱 디렉토리 생성 및 리포 클론
-2. `.env.production` 생성 (직접 편집 필요)
+1. 앱 디렉토리 생성 및 리포 클론 (`DEPLOY_PATH` 로)
+2. `.env.production` 생성 후 **편집기 자동 실행** (값 입력 후 저장)
 3. 의존성 설치 및 빌드
 4. DB 마이그레이션 및 시드
 5. Nginx 설정 생성 및 적용
 6. PM2로 앱 시작
+
+완료 후 임시 클론을 정리합니다.
+
+```bash
+rm -rf /tmp/dicpress
+```
 
 ### CI/CD (GitHub Actions)
 
