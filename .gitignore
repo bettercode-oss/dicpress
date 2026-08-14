@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.production.example
 
 # vercel
 .vercel
@@ -39,3 +40,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/app/generated/prisma
+
+# uploads
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# PM2 logs
+/logs/*
+!/logs/.gitkeep
+
+# production env
+.env.production
+
+# deployment config (server-specific values)
+deploy/project.conf

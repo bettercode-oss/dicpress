@@ -1,0 +1,79 @@
+name: CI / Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── CI: 타입 체크 + 린트 ──────────────────────────────────────────
+  ci:
+    name: Type check & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+  # ─── Deploy: main 브랜치 push 시에만 실행 ─────────────────────────
+  deploy:
+    name: Deploy to Cafe24
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -euo pipefail
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            echo "▶ 최신 코드 가져오기..."
+            git pull origin main
+
+            echo "▶ 의존성 설치..."
+            npm ci
+
+            echo "▶ Prisma 클라이언트 생성..."
+            npx prisma generate
+
+            echo "▶ DB 마이그레이션..."
+            npx prisma migrate deploy
+
+            echo "▶ 프로덕션 빌드..."
+            NODE_ENV=production npm run build
+
+            echo "▶ standalone 정적 파일 복사..."
+            cp -r public .next/standalone/public
+            cp -r .next/static .next/standalone/.next/static
+
+            echo "▶ PM2 재시작 (무중단)..."
+            pm2 reload dic || pm2 start ecosystem.config.js --env production
+
+            echo "▶ 헬스체크..."
+            sleep 3
+            curl -sf http://127.0.0.1:3001/api/health || (pm2 logs dic --lines 20 && exit 1)
+
+            echo "✅ 배포 완료"

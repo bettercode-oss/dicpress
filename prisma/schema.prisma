@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String
+  name      String?
+  createdAt DateTime   @default(now())
+  documents Document[]
+}
+
+enum DocumentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Document {
+  id           String            @id @default(cuid())
+  title        String
+  slug         String            @unique
+  summary      String?
+  contentMd    String            @db.Text
+  contentHtml  String?           @db.Text
+  status       DocumentStatus    @default(DRAFT)
+  thumbnailUrl String?
+  authorId     String
+  author       User              @relation(fields: [authorId], references: [id])
+  publishedAt  DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  versions     DocumentVersion[]
+  tags         DocumentTag[]
+  mediaAssets  MediaAsset[]
+}
+
+model DocumentVersion {
+  id          String   @id @default(cuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  contentMd   String   @db.Text
+  contentHtml String?  @db.Text
+  versionNo   Int
+  createdAt   DateTime @default(now())
+}
+
+model Tag {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  documents DocumentTag[]
+}
+
+model DocumentTag {
+  documentId String
+  tagId      String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, tagId])
+}
+
+model MediaAsset {
+  id         String    @id @default(cuid())
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  url        String
+  fileName   String
+  fileType   String
+  fileSize   Int?
+  uploadedAt DateTime  @default(now())
+}
