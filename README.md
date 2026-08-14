@@ -86,14 +86,14 @@ nano deploy/project.conf
 ```
 
 ```bash
-APP_NAME="dicpress"
+APP_NAME="your-app-name"        # PM2 프로세스명으로 쓰입니다. 도메인 앞부분과 일치시키는 것을 권장합니다 (예: mysite)
 DOMAIN="your-domain.example.com"
 DEPLOY_PATH="/var/www/your-domain.example.com"
 PORT=3001
 REPO_URL="https://github.com/bettercode-oss/dicpress.git"
 ```
 
-`ecosystem.config.js` 상단 config 블록도 동일하게 수정합니다.
+`ecosystem.config.js` 상단 config 블록의 `APP_NAME` 도 동일한 값으로 수정합니다.
 
 ```bash
 nano ecosystem.config.js
