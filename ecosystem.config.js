@@ -2,7 +2,7 @@
 // setup.sh 가 project.conf 를 읽어 환경변수로 export 하므로
 // 이 파일을 직접 편집할 필요가 없습니다.
 const APP_NAME    = process.env.APP_NAME    || "dicpress";
-const DEPLOY_PATH = process.env.DEPLOY_PATH || "/var/www/dicpress";
+const DEPLOY_PATH = process.env.DEPLOY_PATH || __dirname;
 const PORT        = parseInt(process.env.PORT || "3001");
 
 module.exports = {
