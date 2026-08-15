@@ -3,6 +3,7 @@ import { DocumentStatus } from "@prisma/client";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { DeleteDocumentButton } from "@/components/admin/DeleteDocumentButton";
 
 export const metadata = { title: "문서 목록 — 관리자" };
 
@@ -145,13 +146,14 @@ export default async function DocumentsPage({
                   <td className="px-4 py-3 text-gray-500 text-xs">
                     {new Date(doc.updatedAt).toLocaleDateString("ko-KR")}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
                     <Link
                       href={`/admin/documents/${doc.id}/edit`}
                       className="text-xs text-blue-600 hover:underline"
                     >
                       편집
                     </Link>
+                    <DeleteDocumentButton id={doc.id} title={doc.title} />
                   </td>
                 </tr>
               ))}

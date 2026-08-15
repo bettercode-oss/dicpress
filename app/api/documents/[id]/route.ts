@@ -91,10 +91,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const { id } = await params;
 
-  await prisma.document.update({
-    where: { id },
-    data: { status: "ARCHIVED" },
-  });
+  const doc = await prisma.document.findUnique({ where: { id }, select: { slug: true } });
+  if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await prisma.document.delete({ where: { id } });
+
+  revalidatePath(`/${doc.slug}`);
+  revalidatePath("/");
 
   return NextResponse.json({ success: true });
 }

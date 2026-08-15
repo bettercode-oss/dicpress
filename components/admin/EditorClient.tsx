@@ -222,6 +222,17 @@ export default function EditorClient({ document }: { document: DocumentData }) {
             보기 ↗
           </a>
         )}
+        <button
+          onClick={async () => {
+            if (!window.confirm(`"${title}" 문서를 영구 삭제합니다. 되돌릴 수 없습니다.`)) return;
+            const res = await fetch(`/api/documents/${document.id}`, { method: "DELETE" });
+            if (res.ok) router.push("/admin/documents");
+            else alert("삭제에 실패했습니다.");
+          }}
+          className="text-xs px-3 py-1.5 border border-red-200 text-red-500 rounded hover:bg-red-50 transition-colors"
+        >
+          삭제
+        </button>
       </div>
 
       {/* Title area */}
