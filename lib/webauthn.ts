@@ -22,10 +22,12 @@ export async function saveChallenge(email: string, challenge: string, type: stri
 
 export async function consumeChallenge(email: string, type: string) {
   const record = await prisma.webAuthnChallenge.findFirst({
-    where: { email, type, expiresAt: { gt: new Date() } },
+    where: { email, type },
     orderBy: { createdAt: "desc" },
   });
   if (!record) return null;
+  // Postgres TIMESTAMP(without timezone) + Asia/Seoul 세션으로 인한 비교 오차 회피용 JS 레벨 체크
+  if (record.expiresAt.getTime() < Date.now()) return null;
   await prisma.webAuthnChallenge.delete({ where: { id: record.id } });
   return record.challenge;
 }
@@ -47,9 +49,10 @@ export async function createSessionToken(email: string): Promise<string> {
 /** 세션 토큰을 소비해 해당 email 반환. 없거나 만료되면 null */
 export async function consumeSessionToken(token: string): Promise<string | null> {
   const record = await prisma.webAuthnChallenge.findFirst({
-    where: { challenge: token, type: "session_token", expiresAt: { gt: new Date() } },
+    where: { challenge: token, type: "session_token" },
   });
   if (!record) return null;
+  if (record.expiresAt.getTime() < Date.now()) return null;
   await prisma.webAuthnChallenge.delete({ where: { id: record.id } });
   return record.email;
 }
