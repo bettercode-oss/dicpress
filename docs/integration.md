@@ -27,13 +27,17 @@ dic.bizos.kr이 제공하는 공개 API를 사용해 외부 사이트에서 용�
 #### 응답
 
 ```json
-{ "summary": "패스키는 비밀번호 없이 생체인식으로 로그인하는 방식입니다…" }
+{
+  "summary": "패스키는 비밀번호 없이 생체인식으로 로그인하는 방식입니다…",
+  "title": "패스키",
+  "content": "# 패스키\n\n패스키는 비밀번호 없이…"
+}
 ```
 
 문서가 없거나 비공개인 경우:
 
 ```json
-{ "summary": null }
+{ "summary": null, "title": null, "content": null }
 ```
 
 ---

@@ -41,6 +41,29 @@ export const getEntrySummary = cache(async function getEntrySummary(slug: string
   return extractFirstParagraph(doc.contentMd) || null;
 });
 
+export interface EntryData {
+  summary: string | null;
+  title: string | null;
+  content: string | null;
+}
+
+/**
+ * slug로 PUBLISHED 문서의 요약·제목·본문을 반환한다.
+ * 모달 표시 등 전문이 필요한 경우 사용.
+ * 캐싱 전략: getEntrySummary와 동일 (React.cache + 호출 측 ISR).
+ */
+export const getEntry = cache(async function getEntry(slug: string): Promise<EntryData> {
+  const doc = await prisma.document.findFirst({
+    where: { slug, status: "PUBLISHED" },
+    select: { title: true, summary: true, contentMd: true },
+  });
+
+  if (!doc) return { summary: null, title: null, content: null };
+
+  const summary = doc.summary || extractFirstParagraph(doc.contentMd) || null;
+  return { summary, title: doc.title, content: doc.contentMd };
+});
+
 /**
  * 마크다운 텍스트에서 내부 사전 링크의 slug 목록을 추출한다.
  * [키워드](https://dic.bizos.kr/slug) 패턴 감지.

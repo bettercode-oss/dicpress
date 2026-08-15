@@ -1,4 +1,4 @@
-import { getEntrySummary } from "@/lib/entry-summary";
+import { getEntry } from "@/lib/entry-summary";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +16,6 @@ export async function GET(
 ) {
   const { slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
-  const summary = await getEntrySummary(slug);
-  return Response.json({ summary }, { headers: CORS_HEADERS });
+  const entry = await getEntry(slug);
+  return Response.json(entry, { headers: CORS_HEADERS });
 }
