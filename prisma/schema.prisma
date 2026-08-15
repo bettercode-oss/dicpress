@@ -6,13 +6,65 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  OWNER
+  ADMIN
+  AUTHOR
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
 model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
-  password  String
-  name      String?
-  createdAt DateTime   @default(now())
-  documents Document[]
+  id          String               @id @default(cuid())
+  email       String               @unique
+  password    String?
+  name        String?
+  role        UserRole             @default(AUTHOR)
+  status      UserStatus           @default(ACTIVE)
+  createdAt   DateTime             @default(now())
+  documents   Document[]
+  credentials WebAuthnCredential[]
+}
+
+model WebAuthnCredential {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String   @unique
+  publicKey    Bytes
+  counter      BigInt
+  deviceType   String?
+  backedUp     Boolean  @default(false)
+  transports   String?
+  createdAt    DateTime @default(now())
+}
+
+enum AccountRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AccountRequest {
+  id          String               @id @default(cuid())
+  email       String               @unique
+  name        String?
+  status      AccountRequestStatus @default(PENDING)
+  requestedAt DateTime             @default(now())
+  resolvedAt  DateTime?
+}
+
+model WebAuthnChallenge {
+  id        String   @id @default(cuid())
+  challenge String   @unique
+  email     String
+  type      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
 
 enum DocumentStatus {
