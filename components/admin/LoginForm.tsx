@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { HelpTooltip } from "@/components/help-tooltip";
+import { LOGIN_TOOLTIPS } from "@/constants/tooltips";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -40,7 +42,9 @@ export default function LoginForm() {
         </div>
       )}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+        <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1">
+          이메일 <HelpTooltip content={LOGIN_TOOLTIPS.email} side="right" />
+        </label>
         <input
           type="email"
           value={email}
@@ -51,7 +55,9 @@ export default function LoginForm() {
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+        <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1">
+          비밀번호 <HelpTooltip content={LOGIN_TOOLTIPS.password} side="right" />
+        </label>
         <input
           type="password"
           value={password}
