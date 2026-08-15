@@ -5,22 +5,24 @@ const SUMMARY_MAX_LENGTH = 150;
 
 /** contentMd에서 첫 문단 텍스트를 추출해 요약으로 사용 */
 function extractFirstParagraph(md: string): string {
-  const paragraph = md
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .find((block) => block && !block.startsWith("#") && !block.startsWith("```"));
+  // 줄 단위로 처리해 단일 \n 구조도 처리.
+  // 코드 펜스(```) 안쪽 줄과 heading 줄은 건너뜀.
+  let inCode = false;
+  for (const raw of md.split("\n")) {
+    const line = raw.trimStart();
+    if (line.startsWith("```")) { inCode = !inCode; continue; }
+    if (inCode || !line || line.startsWith("#")) continue;
 
-  if (!paragraph) return "";
+    // 마크다운 인라인 문법 제거 (링크, 강조, 코드)
+    const plain = line
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/[*_`~]+/g, "")
+      .trim();
 
-  // 마크다운 인라인 문법 제거 (링크, 강조, 코드)
-  const plain = paragraph
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/[*_`~]+/g, "")
-    .trim();
-
-  return plain.length > SUMMARY_MAX_LENGTH
-    ? plain.slice(0, SUMMARY_MAX_LENGTH) + "…"
-    : plain;
+    if (!plain) continue;
+    return plain.length > SUMMARY_MAX_LENGTH ? plain.slice(0, SUMMARY_MAX_LENGTH) + "…" : plain;
+  }
+  return "";
 }
 
 /**
