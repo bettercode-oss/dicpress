@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import KeywordList, { type DocItem } from "./KeywordList";
 import { SITE_NAME } from "@/lib/site";
@@ -26,8 +27,8 @@ export default function DictionaryLayout({
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
       <header className="h-11 flex items-center px-4 border-b border-gray-100 bg-white shrink-0 z-20">
-        <Link href="/" className="text-sm font-bold text-gray-900 hover:text-blue-600 transition-colors">
-          {SITE_NAME}
+        <Link href="/" className="hover:opacity-70 transition-opacity">
+          <Image src="/logo.png" alt={SITE_NAME} width={24} height={24} />
         </Link>
         {/* Mobile: show current keyword */}
         {pathname !== "/" && (
