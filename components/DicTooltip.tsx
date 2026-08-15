@@ -35,8 +35,8 @@ export function DicTooltip({ keyword, side = "top" }: DicTooltipProps) {
       content={entry.summary}
       side={side}
       modalData={
-        entry.title && entry.content
-          ? { title: entry.title, content: entry.content, slug: keyword }
+        entry.title && entry.contentHtml
+          ? { title: entry.title, html: entry.contentHtml }
           : undefined
       }
     />

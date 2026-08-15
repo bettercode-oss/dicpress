@@ -22,8 +22,8 @@ export async function InternalLink({ href, children, ...props }: Props) {
           content={entry.summary}
           side="top"
           modalData={
-            entry.title && entry.content
-              ? { title: entry.title, content: entry.content, slug }
+            entry.title && entry.contentHtml
+              ? { title: entry.title, html: entry.contentHtml }
               : undefined
           }
         />

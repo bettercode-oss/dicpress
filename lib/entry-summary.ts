@@ -45,6 +45,7 @@ export interface EntryData {
   summary: string | null;
   title: string | null;
   content: string | null;
+  contentHtml: string | null;
 }
 
 /**
@@ -55,13 +56,13 @@ export interface EntryData {
 export const getEntry = cache(async function getEntry(slug: string): Promise<EntryData> {
   const doc = await prisma.document.findFirst({
     where: { slug, status: "PUBLISHED" },
-    select: { title: true, summary: true, contentMd: true },
+    select: { title: true, summary: true, contentMd: true, contentHtml: true },
   });
 
-  if (!doc) return { summary: null, title: null, content: null };
+  if (!doc) return { summary: null, title: null, content: null, contentHtml: null };
 
   const summary = doc.summary || extractFirstParagraph(doc.contentMd) || null;
-  return { summary, title: doc.title, content: doc.contentMd };
+  return { summary, title: doc.title, content: doc.contentMd, contentHtml: doc.contentHtml };
 });
 
 /**

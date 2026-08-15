@@ -1,26 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { marked } from "marked";
-import { SITE_URL } from "@/lib/site";
-
-marked.use({ gfm: true, breaks: true });
 
 interface DocModalProps {
   title: string;
-  content: string;
-  slug: string;
+  html: string;
   onClose: () => void;
 }
 
-export function DocModal({ title, content, slug, onClose }: DocModalProps) {
-  const [html, setHtml] = useState("");
-
-  useEffect(() => {
-    Promise.resolve(marked.parse(content)).then(setHtml);
-  }, [content]);
-
+export function DocModal({ title, html, onClose }: DocModalProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
@@ -52,16 +41,6 @@ export function DocModal({ title, content, slug, onClose }: DocModalProps) {
             prose-code:bg-gray-100 prose-code:px-1 prose-code:rounded prose-code:text-sm"
           dangerouslySetInnerHTML={{ __html: html }}
         />
-        <div className="px-5 py-3 border-t border-gray-100 shrink-0">
-          <a
-            href={`${SITE_URL}/${slug}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm text-blue-600 hover:underline"
-          >
-            전체 보기 ↗
-          </a>
-        </div>
       </div>
     </div>,
     document.body
