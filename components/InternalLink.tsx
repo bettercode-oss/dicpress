@@ -1,4 +1,4 @@
-import { getEntrySummary } from "@/lib/entry-summary";
+import { getEntry } from "@/lib/entry-summary";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { SITE_URL } from "@/lib/site";
 
@@ -12,12 +12,22 @@ export async function InternalLink({ href, children, ...props }: Props) {
   }
 
   const slug = href.slice(prefix.length).split(/[?#]/)[0];
-  const summary = await getEntrySummary(slug);
+  const entry = await getEntry(slug);
 
   return (
     <span className="inline-flex items-center gap-0.5">
       <a href={href} {...props}>{children}</a>
-      {summary && <HelpTooltip content={summary} side="top" />}
+      {entry.summary && (
+        <HelpTooltip
+          content={entry.summary}
+          side="top"
+          modalData={
+            entry.title && entry.content
+              ? { title: entry.title, content: entry.content, slug }
+              : undefined
+          }
+        />
+      )}
     </span>
   );
 }
