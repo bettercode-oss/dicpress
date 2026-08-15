@@ -3,11 +3,14 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
+import { consumeSessionToken } from "@/lib/webauthn";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers: [
+    // 비밀번호 기반 (초기 Owner 설정 전용)
     Credentials({
+      id: "credentials",
       credentials: {
         email: { label: "이메일", type: "email" },
         password: { label: "비밀번호", type: "password" },
@@ -22,6 +25,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const isValid = await bcrypt.compare(String(credentials.password), user.password);
         if (!isValid) return null;
+
+        return { id: user.id, email: user.email, name: user.name ?? undefined };
+      },
+    }),
+    // WebAuthn 인증 완료 후 단발성 토큰으로 세션 발급
+    Credentials({
+      id: "webauthn",
+      credentials: { token: {} },
+      async authorize(credentials) {
+        if (!credentials?.token) return null;
+        const email = await consumeSessionToken(String(credentials.token));
+        if (!email) return null;
+
+        const user = await prisma.user.findUnique({
+          where: { email, status: "ACTIVE" },
+        });
+        if (!user) return null;
 
         return { id: user.id, email: user.email, name: user.name ?? undefined };
       },
