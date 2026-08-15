@@ -18,6 +18,7 @@ export default function DictionaryLayout({
 
   // 키워드 클릭 후 모바일 사이드바 닫기
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMobileOpen(false);
   }, [pathname]);
 

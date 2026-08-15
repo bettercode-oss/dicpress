@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const path = require("path");
 const { name: APP_NAME } = require("./package.json");
 const PORT = parseInt(process.env.PORT || "3001");

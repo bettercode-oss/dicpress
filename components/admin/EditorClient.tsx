@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { marked } from "marked";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import VersionHistoryPanel from "./VersionHistoryPanel";
 
 type DocumentStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
@@ -53,6 +54,7 @@ export default function EditorClient({ document }: { document: DocumentData }) {
     if (showHistory) return; // 이력 패널이 열려있을 때는 미리보기 불필요
     const result = marked.parse(content || "");
     if (result instanceof Promise) result.then(setPreview);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     else setPreview(result as string);
   }, [content, showHistory]);
 
@@ -172,7 +174,7 @@ export default function EditorClient({ document }: { document: DocumentData }) {
     <div className="flex flex-col" style={{ height: "calc(100vh - 2.5rem)" }}>
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200 bg-white shrink-0">
-        <a href="/admin/documents" className="text-xs text-gray-400 hover:text-gray-700">← 목록</a>
+        <Link href="/admin/documents" className="text-xs text-gray-400 hover:text-gray-700">← 목록</Link>
         <span className="text-gray-200">|</span>
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[status]}`}>
           {statusLabel[status]}

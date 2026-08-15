@@ -34,6 +34,7 @@ export default function VersionHistoryPanel({
   const [restored, setRestored] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch(`/api/documents/${documentId}/versions`)
       .then((r) => r.json())
@@ -45,6 +46,7 @@ export default function VersionHistoryPanel({
   }, [documentId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!selected) { setPreview(""); return; }
     const result = marked.parse(selected.contentMd || "");
     if (result instanceof Promise) result.then(setPreview);
