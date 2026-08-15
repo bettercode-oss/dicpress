@@ -13,7 +13,9 @@ export const authConfig: NextAuthConfig = {
       const isLoggedIn = !!auth?.user;
       const isLoginPage = nextUrl.pathname === "/admin/login";
 
-      if (isLoginPage) {
+      const isSetupPage = nextUrl.pathname === "/admin/setup";
+
+      if (isLoginPage || isSetupPage) {
         if (isLoggedIn) return Response.redirect(new URL("/admin/documents", nextUrl));
         return true;
       }
