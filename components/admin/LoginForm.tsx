@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { HelpTooltip } from "@/components/help-tooltip";
+import { DicTooltip } from "@/components/DicTooltip";
 import { LOGIN_TOOLTIPS } from "@/constants/tooltips";
 
 export default function LoginForm() {
@@ -43,7 +44,7 @@ export default function LoginForm() {
       )}
       <div>
         <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1">
-          이메일 <HelpTooltip content={LOGIN_TOOLTIPS.email} side="right" />
+          이메일 <DicTooltip keyword="email-only" side="right" />
         </label>
         <input
           type="email"
