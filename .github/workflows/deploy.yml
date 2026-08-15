@@ -62,6 +62,11 @@ jobs:
             echo "▶ DB 마이그레이션..."
             npx prisma migrate deploy
 
+            echo "▶ 빌드 정보 주입..."
+            export NEXT_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD)
+            export NEXT_PUBLIC_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            export NEXT_PUBLIC_APP_VERSION=$(node -p "require('./package.json').version")
+
             echo "▶ 프로덕션 빌드..."
             NODE_ENV=production npm run build
 
@@ -77,3 +82,15 @@ jobs:
             curl -sf http://127.0.0.1:${{ secrets.PORT }}/api/health || (pm2 logs dicpress --lines 20 && exit 1)
 
             echo "✅ 배포 완료"
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          EXPECTED="${{ github.sha }}"
+          EXPECTED_SHORT="${EXPECTED:0:7}"
+          DEPLOYED=$(curl -sf https://dic.bizos.kr/api/version | grep -o '"gitSha":"[^"]*"' | cut -d'"' -f4)
+          if [ "$DEPLOYED" != "$EXPECTED_SHORT" ]; then
+            echo "⚠️ 배포된 SHA($DEPLOYED)가 예상($EXPECTED_SHORT)과 다릅니다"
+            exit 1
+          fi
+          echo "✅ 배포 확인 완료: $DEPLOYED"

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { signOut } from "@/auth";
 import Link from "next/link";
 import { SITE_NAME } from "@/lib/site";
+import { buildInfo } from "@/lib/build-info";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -32,6 +33,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </form>
       </header>
       {children}
+      <footer className="shrink-0 py-2 text-center text-[11px] text-gray-300">
+        v{buildInfo.version} · {buildInfo.gitSha} · {new Date(buildInfo.buildTime).toLocaleString("ko-KR")}
+      </footer>
     </div>
   );
 }
