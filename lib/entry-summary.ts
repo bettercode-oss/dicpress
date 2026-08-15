@@ -28,6 +28,8 @@ function extractFirstParagraph(md: string): string {
  * Document.summary 필드 우선, 없으면 contentMd 첫 문단에서 추출.
  * 문서가 없거나 비공개이면 null 반환.
  */
+// 캐싱 전략: React.cache()로 단일 요청 내 동일 slug 중복 DB 조회 제거.
+// 요청 간 지속 캐시는 호출 측 페이지의 ISR(revalidate=600)에 위임.
 export const getEntrySummary = cache(async function getEntrySummary(slug: string): Promise<string | null> {
   const doc = await prisma.document.findFirst({
     where: { slug, status: "PUBLISHED" },
