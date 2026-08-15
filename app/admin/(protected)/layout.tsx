@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { signOut } from "@/auth";
 import Link from "next/link";
+import Image from "next/image";
 import { SITE_NAME } from "@/lib/site";
 import { buildInfo } from "@/lib/build-info";
 
@@ -12,8 +13,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen flex flex-col">
       <header className="h-10 flex items-center gap-4 px-4 border-b border-gray-200 bg-white shrink-0">
-        <Link href="/admin/documents" className="text-sm font-semibold text-gray-900 hover:text-blue-600">
-          {SITE_NAME} 관리
+        <Link href="/admin/documents" className="hover:opacity-70 transition-opacity">
+          <Image src="/logo.png" alt={SITE_NAME} width={24} height={24} />
         </Link>
         <nav className="flex items-center gap-3">
           <Link href="/admin/documents" className="text-xs text-gray-500 hover:text-gray-900">문서</Link>
