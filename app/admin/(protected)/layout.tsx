@@ -34,7 +34,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </header>
       {children}
       <footer className="shrink-0 py-2 text-center text-[11px] text-gray-300">
-        v{buildInfo.version} · {buildInfo.gitSha} · {new Date(buildInfo.buildTime).toLocaleString("ko-KR")}
+        v{buildInfo.version} ·{" "}
+        {buildInfo.repoUrl ? (
+          <a href={`${buildInfo.repoUrl}/commit/${buildInfo.gitSha}`} target="_blank" className="hover:text-gray-500">
+            {buildInfo.gitSha}
+          </a>
+        ) : buildInfo.gitSha}{" "}
+        · {new Date(buildInfo.buildTime).toLocaleString("ko-KR")}
       </footer>
     </div>
   );
