@@ -2,6 +2,13 @@
 
 dic.bizos.kr이 제공하는 공개 API를 사용해 외부 사이트에서 용어 설명 툴팁을 구현하는 방법을 설명합니다.
 
+> **dic 내부 사용과의 차이**  
+> dic 자체(dic.bizos.kr)는 두 가지 경로로 요약을 가져옵니다.  
+> - **서버 컴포넌트(마크다운 렌더러)**: `InternalLink` + `getEntrySummary(slug)` — DB 직접 조회, HTTP 왕복 없음  
+> - **클라이언트 컴포넌트(폼 등)**: `DicTooltip` — `/api/entry/:keyword` fetch, `?` 아이콘 패턴  
+>
+> 이 문서는 **외부 사이트**를 위한 가이드입니다. 외부 사이트는 항상 API fetch 방식을 사용합니다.
+
 ---
 
 ## API 엔드포인트
@@ -47,6 +54,12 @@ async function getDicSummary(slug) {
 
 외부 사이트가 자체 디자인 시스템 툴팁을 사용하고 싶을 때는 **render prop** 방식으로 렌더러를 주입합니다.
 
+> **UX 패턴 선택**  
+> - **children 감싸기**: 키워드 텍스트에 직접 툴팁을 붙이는 방식 (아래 예시)  
+> - **`?` 아이콘**: dic 내부(`DicTooltip`)처럼 텍스트 옆에 아이콘을 추가하는 방식  
+>
+> 외부 사이트는 자체 디자인에 맞는 방식을 선택하세요.
+
 ```tsx
 import { useState, useEffect } from "react";
 
@@ -62,7 +75,7 @@ interface DicTooltipProps {
 }
 
 function DefaultTooltip({ content, children }: { content: string; children: React.ReactNode }) {
-  // 기본 구현 — 자체 디자인 시스템 컴포넌트로 교체 가능
+  // 최소 구현 — 실제 서비스에서는 자체 디자인 시스템 컴포넌트로 교체 권장
   return (
     <span title={content} style={{ cursor: "help", textDecoration: "underline dotted" }}>
       {children}
@@ -78,10 +91,12 @@ export function DicTooltip({
   const [summary, setSummary] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false; // 언마운트 후 setState 방지
     fetch(`https://dic.bizos.kr/api/entry/${encodeURIComponent(keyword)}`)
       .then((r) => r.json())
-      .then((d) => setSummary(d.summary))
+      .then((d) => { if (!cancelled) setSummary(d.summary); })
       .catch(() => {}); // 네트워크 오류 시 툴팁 없이 원본 표시
+    return () => { cancelled = true; };
   }, [keyword]);
 
   if (!summary) return <>{children}</>;
