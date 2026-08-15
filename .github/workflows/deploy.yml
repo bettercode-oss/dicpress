@@ -70,7 +70,7 @@ jobs:
             cp -r .next/static .next/standalone/.next/static
 
             echo "▶ PM2 재시작 (무중단)..."
-            pm2 reload dic || pm2 start ecosystem.config.js --env production
+            pm2 reload dicpress || pm2 start ecosystem.config.js --env production
 
             echo "▶ 헬스체크..."
             sleep 3
