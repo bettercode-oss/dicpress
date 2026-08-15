@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 
 const SUMMARY_MAX_LENGTH = 150;
@@ -27,7 +28,7 @@ function extractFirstParagraph(md: string): string {
  * Document.summary 필드 우선, 없으면 contentMd 첫 문단에서 추출.
  * 문서가 없거나 비공개이면 null 반환.
  */
-export async function getEntrySummary(slug: string): Promise<string | null> {
+export const getEntrySummary = cache(async function getEntrySummary(slug: string): Promise<string | null> {
   const doc = await prisma.document.findFirst({
     where: { slug, status: "PUBLISHED" },
     select: { summary: true, contentMd: true },
@@ -36,7 +37,7 @@ export async function getEntrySummary(slug: string): Promise<string | null> {
   if (!doc) return null;
   if (doc.summary) return doc.summary;
   return extractFirstParagraph(doc.contentMd) || null;
-}
+});
 
 /**
  * 마크다운 텍스트에서 내부 사전 링크의 slug 목록을 추출한다.

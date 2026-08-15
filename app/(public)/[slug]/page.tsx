@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { markdownToHtml } from "@/lib/markdown";
+import { markdownToReact } from "@/lib/markdown";
 import { SITE_URL, SITE_NAME } from "@/lib/site";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -58,7 +58,7 @@ export default async function SlugPage({ params }: Props) {
 
   if (!doc) notFound();
 
-  const html = doc.contentHtml || (await markdownToHtml(doc.contentMd));
+  const content = await markdownToReact(doc.contentMd);
 
   return (
     <article className="max-w-3xl mx-auto px-6 py-8">
@@ -115,8 +115,9 @@ export default async function SlugPage({ params }: Props) {
           prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-lg
           prose-blockquote:border-blue-400 prose-blockquote:text-gray-600
           prose-img:rounded-lg"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      >
+        {content}
+      </div>
     </article>
   );
 }
