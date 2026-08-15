@@ -20,22 +20,31 @@ app/
     login/           — 로그인 페이지
     (protected)/     — 문서 목록/편집
   api/
-    entry/[slug]/    — 공개 API: 외부 사이트용 entry summary (CORS *)
+    entry/[slug]/    — 공개 API: { summary, title, content, contentHtml } (CORS *)
     public/          — 공개 API: 문서 색인 목록
     version/         — 빌드 정보 (force-dynamic)
     health/          — 헬스체크
     documents/       — 관리자 CRUD API
 
 lib/
-  entry-summary.ts   — getEntrySummary(slug): React.cache() 감싸진 DB 조회
+  entry-summary.ts   — getEntrySummary(), getEntry(), EntryData 타입
   markdown.ts        — markdownToReact(): rehype-react로 RSC 트리 반환
   build-info.ts      — NEXT_PUBLIC_* 빌드 메타 (버전, gitSha, buildTime)
   site.ts            — SITE_URL, SITE_NAME 환경변수
 
 components/
   InternalLink.tsx   — async RSC: 내부 링크에 HelpTooltip 자동 부착
-  help-tooltip.tsx   — HelpTooltip 클라이언트 컴포넌트 (Base UI Tooltip)
+  HelpTooltip.tsx    — 클라이언트 컴포넌트 (Base UI Tooltip + DocModal 연동)
+  DicTooltip.tsx     — 클라이언트 컴포넌트: keyword → /api/entry fetch → HelpTooltip
+  DocModal.tsx       — 클라이언트 컴포넌트: 문서 전문 모달 (contentHtml 렌더)
   ui/tooltip.tsx     — shadcn/ui generated (Base UI @base-ui/react/tooltip)
+
+constants/
+  tooltips.ts        — 하드코딩 툴팁 (password 필드만 남음, 점진적 DicTooltip 전환 중)
+
+docs/
+  integration.md     — 외부 사이트 연동 가이드 (API 명세 + DicTooltip 패턴)
+  decisions/         — ADR 문서
 ```
 
 ---
@@ -46,17 +55,34 @@ components/
 `markdownToReact()` 사용 (dangerouslySetInnerHTML 미사용).
 - 파이프라인: remark-parse → remark-gfm → remark-rehype → rehype-sanitize → rehype-highlight → rehype-react
 - `a` 태그를 `InternalLink` (async RSC)로 교체해 내부 링크에 툴팁 자동 부착
-- `rehype-react`가 React 트리를 직접 생성하므로 XSS 위험 없음
 
-### 내부 링크 툴팁
-`InternalLink` → `getEntrySummary(slug)` → DB 조회 → `HelpTooltip` 렌더.
-- `getEntrySummary`는 `React.cache()`로 같은 요청 내 중복 DB 조회 제거
-- 비공개/없는 문서면 툴팁 미표시 (summary: null)
-- summary 우선순위: `Document.summary` 필드 → contentMd 첫 문단 추출(최대 150자)
+### 툴팁 시스템 — 두 가지 경로
+
+| 환경 | 컴포넌트 | 데이터 출처 |
+|---|---|---|
+| 서버 (마크다운 렌더러) | `InternalLink` → `getEntry()` → `HelpTooltip` | DB 직접 조회 |
+| 클라이언트 (폼 등) | `DicTooltip` → `/api/entry/[slug]` fetch → `HelpTooltip` | HTTP API |
+
+**툴팁 UX 흐름**:
+1. `?` 아이콘 hover/tap → 요약(summary) 툴팁 표시
+2. 툴팁 내 **"더 보기"** 클릭 → `DocModal` 오픈 (contentHtml 전문 표시)
+3. ESC / 외부 클릭 → 모달 닫기
 
 ### 외부 사이트 API
 `GET /api/entry/[slug]` — CORS `*` 허용, `s-maxage=300`.
-외부 사이트에서 `fetch("https://dic.bizos.kr/api/entry/passkey")` 형태로 호출.
+응답: `{ summary, title, content, contentHtml }` (없으면 전부 null).
+연동 가이드: `docs/integration.md` 참고.
+
+### summary 추출 전략
+`Document.summary` 필드 우선 → 없으면 `contentMd`에서 자동 추출.
+- 줄 단위 순회: heading(`#`) 줄·코드 펜스 내부 건너뜀
+- 단일 `\n` 구조(빈 줄 없는 문서)도 정상 처리
+- 최대 150자, 초과 시 `…` 추가
+
+### CMS 관리 툴팁 (DicTooltip)
+- 로그인 이메일 필드: `<DicTooltip keyword="email-only" />` → `email-only` 슬러그 문서
+- 로그인 비밀번호 필드: 향후 `password-only` 슬러그 문서로 전환 예정 (#37)
+- `constants/tooltips.ts`는 미전환 항목만 임시 보관
 
 ### 관리자 인증
 NextAuth v5 Credentials provider. `trustHost: true` (auth.config.ts).
@@ -123,15 +149,17 @@ pm2 logs dicpress --lines 50
 
 | 마일스톤 | 상태 |
 |---|---|
-| M1 - dogfooding | 완료 (6/6 이슈) |
-| M2 - 외부 사이트 적용 | 진행 중 (1/4 이슈 완료) |
+| M1 - dogfooding | 진행 중 (Epic #32 하위 이슈 완료 후 종료) |
+| M2 - 외부 사이트 적용 | 진행 중 |
+
+### M1 오픈 이슈
+- **#37** password-only SLUG 연결 (사용자가 `password-only` 문서 작성 후 진행)
+- **#32** Epic: Tooltip 적용 마무리 (#37 완료 후 닫기)
 
 ### M2 오픈 이슈
-- **#1** Passkey 사용을 낯설어 하는 사용자를 위한 도움말 제공 (dic.bizos.kr/passkey 연결)
-- **#10** ordera.bettercode.kr/signin 에 패스키 로그인 툴팁 적용
-- **#11** ordera.libaitian.kr/signin 에 패스키 로그인 툴팁 적용
-
-#10, #11은 ordera 프로젝트 코드 변경 필요 (dic 레포 외부).
+- **#1** Passkey 사용을 낯설어 하는 사용자를 위한 도움말 제공
+- **#10** ordera.bettercode.kr/signin 적용 (ordera 프로젝트 필요)
+- **#11** ordera.libaitian.kr/signin 적용 (ordera 프로젝트 필요)
 
 ---
 
