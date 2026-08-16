@@ -18,6 +18,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </Link>
         <nav className="flex items-center gap-3">
           <Link href="/admin/documents" className="text-xs text-gray-500 hover:text-gray-900">문서</Link>
+          {["OWNER", "ADMIN"].includes(session.user?.role ?? "") && (
+            <Link href="/admin/users" className="text-xs text-gray-500 hover:text-gray-900">사용자</Link>
+          )}
           <Link href="/" target="_blank" className="text-xs text-gray-500 hover:text-gray-900">사이트 보기 ↗</Link>
         </nav>
         <div className="flex-1" />

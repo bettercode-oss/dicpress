@@ -14,11 +14,16 @@ export const authConfig: NextAuthConfig = {
       const isLoginPage = nextUrl.pathname === "/admin/login";
 
       const isSetupPage = nextUrl.pathname === "/admin/setup";
+      const isPublicAdminPage =
+        nextUrl.pathname === "/admin/signup" ||
+        nextUrl.pathname === "/admin/register-passkey";
 
       if (isLoginPage || isSetupPage) {
         if (isLoggedIn) return Response.redirect(new URL("/admin/documents", nextUrl));
         return true;
       }
+
+      if (isPublicAdminPage) return true;
 
       if (nextUrl.pathname.startsWith("/admin")) return isLoggedIn;
 

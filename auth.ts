@@ -26,7 +26,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const isValid = await bcrypt.compare(String(credentials.password), user.password);
         if (!isValid) return null;
 
-        return { id: user.id, email: user.email, name: user.name ?? undefined };
+        return { id: user.id, email: user.email, name: user.name ?? undefined, role: user.role };
       },
     }),
     // WebAuthn 인증 완료 후 단발성 토큰으로 세션 발급
@@ -43,14 +43,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         if (!user) return null;
 
-        return { id: user.id, email: user.email, name: user.name ?? undefined };
+        return { id: user.id, email: user.email, name: user.name ?? undefined, role: user.role };
       },
     }),
   ],
   callbacks: {
     ...authConfig.callbacks,
+    jwt({ token, user }) {
+      if (user) token.role = (user as { role?: string }).role;
+      return token;
+    },
     session({ session, token }) {
       if (token.sub) session.user.id = token.sub;
+      if (token.role) session.user.role = token.role as "OWNER" | "ADMIN" | "AUTHOR";
       return session;
     },
   },
