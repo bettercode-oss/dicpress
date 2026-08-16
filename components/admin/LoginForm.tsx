@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { HelpTooltip } from "@/components/help-tooltip";
+import { startAuthentication } from "@simplewebauthn/browser";
 import { DicTooltip } from "@/components/DicTooltip";
-import { LOGIN_TOOLTIPS } from "@/constants/tooltips";
 
-export default function LoginForm() {
+interface LoginFormProps {
+  needsSetup?: boolean;
+}
+
+export default function LoginForm({ needsSetup }: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -19,20 +21,77 @@ export default function LoginForm() {
     setError("");
     setLoading(true);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      // 1) 인증 옵션 요청
+      const optRes = await fetch("/api/auth/webauthn/authenticate/options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
 
-    setLoading(false);
+      if (!optRes.ok) {
+        const d = await optRes.json();
+        setError(d.error === "등록된 Passkey 없음"
+          ? "이 이메일에 등록된 Passkey가 없습니다."
+          : "로그인에 실패했습니다.");
+        return;
+      }
 
-    if (result?.error) {
-      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
-    } else {
+      const options = await optRes.json();
+
+      // 2) 브라우저 Passkey 인증
+      const credential = await startAuthentication(options);
+
+      // 3) 서버 검증
+      const verRes = await fetch("/api/auth/webauthn/authenticate/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, response: credential }),
+      });
+
+      if (!verRes.ok) {
+        setError("Passkey 인증에 실패했습니다.");
+        return;
+      }
+
+      const { token } = await verRes.json();
+
+      // 4) NextAuth 세션 발급
+      const result = await signIn("webauthn", { token, redirect: false });
+
+      if (result?.error) {
+        setError("세션 발급에 실패했습니다. 다시 시도해 주세요.");
+        return;
+      }
+
       router.push("/admin/documents");
       router.refresh();
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "NotAllowedError") {
+        setError("Passkey 인증이 취소되었습니다.");
+      } else {
+        setError("로그인 중 오류가 발생했습니다.");
+      }
+    } finally {
+      setLoading(false);
     }
+  }
+
+  if (needsSetup) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-3">
+          <p className="font-medium mb-1">초기 설정이 필요합니다</p>
+          <p>먼저 Owner 계정에 Passkey를 등록해 주세요.</p>
+        </div>
+        <a
+          href="/admin/setup"
+          className="w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded text-sm transition-colors"
+        >
+          초기 설정하기
+        </a>
+      </div>
+    );
   }
 
   return (
@@ -55,25 +114,19 @@ export default function LoginForm() {
           className="w-full border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
       </div>
-      <div>
-        <label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1">
-          비밀번호 <HelpTooltip content={LOGIN_TOOLTIPS.password} side="right" />
-        </label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-        />
-      </div>
       <button
         type="submit"
         disabled={loading}
         className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 rounded text-sm transition-colors"
       >
-        {loading ? "로그인 중..." : "로그인"}
+        {loading ? "인증 중..." : "Passkey로 로그인"}
       </button>
+      <p className="text-center text-xs text-gray-400">
+        계정이 없으신가요?{" "}
+        <a href="/admin/signup" className="text-blue-500 hover:underline">
+          계정 신청
+        </a>
+      </p>
     </form>
   );
 }
