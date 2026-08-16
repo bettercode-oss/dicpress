@@ -8,7 +8,7 @@ export async function sendPasskeyRegistrationEmail(to: string, name: string, tok
   const FROM = process.env.RESEND_FROM ?? "noreply@bizos.kr";
   const link = `${SITE_URL}/admin/register-passkey?token=${token}`;
 
-  await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from: FROM,
     to,
     subject: `[${SITE_NAME}] Passkey 등록 링크`,
@@ -21,4 +21,9 @@ export async function sendPasskeyRegistrationEmail(to: string, name: string, tok
       본인이 신청하지 않은 경우 이 이메일을 무시하세요.</p>
     `,
   });
+  if (error) {
+    console.error("[Resend] 이메일 발송 실패:", JSON.stringify(error));
+    throw new Error(`이메일 발송 실패: ${error.message}`);
+  }
+  console.log("[Resend] 이메일 발송 성공:", data?.id);
 }
