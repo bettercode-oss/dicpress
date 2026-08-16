@@ -1,11 +1,11 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.RESEND_FROM ?? "noreply@bizos.kr";
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "BetterCode 용어사전";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 export async function sendPasskeyRegistrationEmail(to: string, name: string, token: string) {
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const FROM = process.env.RESEND_FROM ?? "noreply@bizos.kr";
   const link = `${SITE_URL}/admin/register-passkey?token=${token}`;
 
   await resend.emails.send({
