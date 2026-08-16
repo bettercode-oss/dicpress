@@ -20,16 +20,23 @@ export async function POST(req: NextRequest) {
   });
   if (!user) return NextResponse.json({ error: "사용자 없음" }, { status: 404 });
 
-  const credential = user.credentials.find((c) => c.credentialId === response.id);
+  // macOS Passkey가 id를 표준 base64로 반환할 수 있으므로 rawId(base64url)로 정규화
+  const normalizedResponse: AuthenticationResponseJSON = {
+    ...response,
+    id: response.rawId,
+  };
+
+  const credential = user.credentials.find((c) => c.credentialId === normalizedResponse.id);
   if (!credential) return NextResponse.json({ error: "Passkey 없음" }, { status: 404 });
 
   let verification;
   try {
     verification = await verifyAuthenticationResponse({
-      response,
+      response: normalizedResponse,
       expectedChallenge,
       expectedOrigin: ORIGIN,
       expectedRPID: RP_ID,
+      requireUserVerification: false,
       authenticator: {
         credentialID: isoBase64URL.toBuffer(credential.credentialId),
         credentialPublicKey: new Uint8Array(credential.publicKey),

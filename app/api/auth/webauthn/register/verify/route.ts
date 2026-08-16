@@ -17,13 +17,20 @@ export async function POST(req: NextRequest) {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) return NextResponse.json({ error: "사용자 없음" }, { status: 404 });
 
+  // macOS Passkey가 id를 표준 base64로 반환하는 경우 rawId(base64url)로 정규화
+  const normalizedResponse: RegistrationResponseJSON = {
+    ...response,
+    id: response.rawId,
+  };
+
   let verification;
   try {
     verification = await verifyRegistrationResponse({
-      response,
+      response: normalizedResponse,
       expectedChallenge,
       expectedOrigin: ORIGIN,
       expectedRPID: RP_ID,
+      requireUserVerification: false,
     });
   } catch (e) {
     console.error(e);
