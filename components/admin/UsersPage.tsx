@@ -48,6 +48,12 @@ export default function UsersPage({
     Promise.all([fetchUsers(), fetchRequests()]).finally(() => setLoading(false));
   }, [fetchUsers, fetchRequests]);
 
+  async function deleteUser(id: string, name: string | null, email: string) {
+    if (!confirm(`${name ?? email} 계정을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return;
+    await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+    await fetchUsers();
+  }
+
   async function changeRole(id: string, role: string) {
     await fetch(`/api/admin/users/${id}/role`, {
       method: "PATCH",
@@ -150,7 +156,7 @@ export default function UsersPage({
                     <td className="py-2 pr-4 text-xs text-gray-400">
                       {new Date(user.createdAt).toLocaleDateString("ko-KR")}
                     </td>
-                    <td className="py-2">
+                    <td className="py-2 flex gap-3">
                       {canChangeStatus && user.status === "ACTIVE" && (
                         <button
                           onClick={() => changeStatus(user.id, "SUSPENDED")}
@@ -165,6 +171,14 @@ export default function UsersPage({
                           className="text-xs text-blue-600 hover:underline"
                         >
                           복구
+                        </button>
+                      )}
+                      {currentUserRole === "OWNER" && !isSelf && !isOwner && (
+                        <button
+                          onClick={() => deleteUser(user.id, user.name, user.email)}
+                          className="text-xs text-gray-400 hover:text-red-600 hover:underline"
+                        >
+                          삭제
                         </button>
                       )}
                     </td>
