@@ -44,7 +44,7 @@ export default function UsersPage({
   }, []);
 
   useEffect(() => {
-    setLoading(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch, setState in callback is safe
     Promise.all([fetchUsers(), fetchRequests()]).finally(() => setLoading(false));
   }, [fetchUsers, fetchRequests]);
 

@@ -23,6 +23,7 @@ export default async function RegisterPasskeyPage({
   });
 
   if (!record) return invalid("유효하지 않은 링크입니다.");
+  // eslint-disable-next-line react-hooks/purity -- server component, no re-renders
   if (record.expiresAt.getTime() < Date.now()) return invalid("만료된 링크입니다.");
 
   return (

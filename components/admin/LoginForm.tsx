@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { startAuthentication } from "@simplewebauthn/browser";
@@ -84,12 +85,12 @@ export default function LoginForm({ needsSetup }: LoginFormProps) {
           <p className="font-medium mb-1">초기 설정이 필요합니다</p>
           <p>먼저 Owner 계정에 Passkey를 등록해 주세요.</p>
         </div>
-        <a
+        <Link
           href="/admin/setup"
           className="w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded text-sm transition-colors"
         >
           초기 설정하기
-        </a>
+        </Link>
       </div>
     );
   }
@@ -123,9 +124,9 @@ export default function LoginForm({ needsSetup }: LoginFormProps) {
       </button>
       <p className="text-center text-xs text-gray-400">
         계정이 없으신가요?{" "}
-        <a href="/admin/signup" className="text-blue-500 hover:underline">
+        <Link href="/admin/signup" className="text-blue-500 hover:underline">
           계정 신청
-        </a>
+        </Link>
       </p>
     </form>
   );
