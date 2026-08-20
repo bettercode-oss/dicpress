@@ -73,8 +73,18 @@ export default function UsersPage({
   }
 
   async function approve(id: string) {
-    await fetch(`/api/admin/accounts/${id}/approve`, { method: "POST" });
+    const res = await fetch(`/api/admin/accounts/${id}/approve`, { method: "POST" });
+    const data = await res.json().catch(() => null);
     await fetchRequests();
+
+    // 승인은 됐는데 안내 메일이 안 나간 경우. 알리지 않으면 아무도 모른 채
+    // 신청자만 링크를 기다리게 된다.
+    if (res.ok && data?.emailSent === false) {
+      alert(
+        "승인은 완료됐지만 등록 안내 이메일 발송에 실패했습니다.\n" +
+        "서버 로그를 확인하고 등록 링크를 다시 전달해 주세요.",
+      );
+    }
   }
 
   async function reject(id: string) {
