@@ -172,4 +172,6 @@ pm2 logs dicpress --lines 50
 | `NEXT_PUBLIC_SITE_URL` | SITE_URL (내부 링크 판별) | `.env` |
 | `NEXT_PUBLIC_SITE_NAME` | 사이트 표시명 | `.env` |
 | `AUTH_TRUST_HOST` | NextAuth 프록시 신뢰 | PM2 env_production |
+| `RESEND_API_KEY` | Resend 이메일 발송 | `.env` (서버에도 필요) |
+| `RESEND_FROM` | 발신 주소 — 인증된 도메인이어야 함 | `.env` (서버에도 필요) |
 | `NEXT_PUBLIC_GIT_SHA` 외 3개 | 빌드 버전 표시 | CI 빌드 시 주입 |
