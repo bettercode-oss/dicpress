@@ -3,11 +3,17 @@ import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import type { RegistrationResponseJSON } from "@simplewebauthn/types";
 import { prisma } from "@/lib/prisma";
-import { RP_ID, ORIGIN, consumeChallenge } from "@/lib/webauthn";
+import { RP_ID, ORIGIN, consumeChallenge, verifyRegistrationToken } from "@/lib/webauthn";
 
 export async function POST(req: NextRequest) {
-  const { email, response }: { email: string; response: RegistrationResponseJSON } = await req.json();
+  const { email, response, token }: {
+    email: string; response: RegistrationResponseJSON; token?: string;
+  } = await req.json();
   if (!email || !response) return NextResponse.json({ error: "email, response 필수" }, { status: 400 });
+
+  if (!token || !(await verifyRegistrationToken(String(token), email))) {
+    return NextResponse.json({ error: "유효하지 않은 등록 토큰" }, { status: 401 });
+  }
 
   const expectedChallenge = await consumeChallenge(email, "registration");
   if (!expectedChallenge) {
