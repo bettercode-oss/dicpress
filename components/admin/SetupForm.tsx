@@ -44,7 +44,7 @@ export default function SetupForm() {
       const optRes = await fetch("/api/auth/webauthn/register/options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, token: setupToken }),
       });
       if (!optRes.ok) { setError("옵션 요청 실패"); return; }
       const options = await optRes.json();
@@ -56,7 +56,7 @@ export default function SetupForm() {
       const verRes = await fetch("/api/auth/webauthn/register/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, response: credential }),
+        body: JSON.stringify({ email, response: credential, token: setupToken }),
       });
       if (!verRes.ok) { setError("Passkey 등록 검증 실패"); return; }
 

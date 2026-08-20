@@ -56,3 +56,21 @@ export async function consumeSessionToken(token: string): Promise<string | null>
   await prisma.webAuthnChallenge.delete({ where: { id: record.id } });
   return record.email;
 }
+
+/** Passkey 등록을 인가하는 토큰 종류. */
+const REGISTRATION_TOKEN_TYPES = ["setup_token", "registration_invite"];
+
+/**
+ * 등록 토큰이 해당 이메일에 대해 유효한지 확인한다. **소비하지 않는다.**
+ *
+ * 하나의 토큰이 register/options → register/verify → complete 세 단계에 쓰이므로
+ * 여기서 삭제하면 흐름이 끊긴다. 소비는 기존대로 각 흐름의 complete가 담당한다.
+ */
+export async function verifyRegistrationToken(token: string, email: string): Promise<boolean> {
+  const record = await prisma.webAuthnChallenge.findFirst({
+    where: { challenge: token, email, type: { in: REGISTRATION_TOKEN_TYPES } },
+    select: { expiresAt: true },
+  });
+  if (!record) return false;
+  return record.expiresAt.getTime() >= Date.now();
+}

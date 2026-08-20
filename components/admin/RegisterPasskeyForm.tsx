@@ -17,7 +17,7 @@ export default function RegisterPasskeyForm({ token, email }: { token: string; e
       const optRes = await fetch("/api/auth/webauthn/register/options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, token }),
       });
       if (!optRes.ok) {
         const d = await optRes.json();
@@ -32,7 +32,7 @@ export default function RegisterPasskeyForm({ token, email }: { token: string; e
       const verRes = await fetch("/api/auth/webauthn/register/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, response: registrationResponse }),
+        body: JSON.stringify({ email, response: registrationResponse, token }),
       });
       if (!verRes.ok) {
         const d = await verRes.json();

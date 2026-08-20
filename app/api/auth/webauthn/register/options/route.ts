@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import { prisma } from "@/lib/prisma";
-import { RP_ID, RP_NAME, saveChallenge } from "@/lib/webauthn";
+import { RP_ID, RP_NAME, saveChallenge, verifyRegistrationToken } from "@/lib/webauthn";
 
 export async function POST(req: NextRequest) {
-  const { email } = await req.json();
+  const { email, token } = await req.json();
   if (!email) return NextResponse.json({ error: "email 필수" }, { status: 400 });
+
+  if (!token || !(await verifyRegistrationToken(String(token), email))) {
+    return NextResponse.json({ error: "유효하지 않은 등록 토큰" }, { status: 401 });
+  }
 
   const user = await prisma.user.findUnique({
     where: { email },
