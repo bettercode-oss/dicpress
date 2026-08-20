@@ -143,6 +143,33 @@ pm2 logs dicpress --lines 50
 
 `ecosystem.config.js`는 `__dirname` 기반 절대 경로 사용 — 환경변수 `DEPLOY_PATH` 불필요.
 
+### ⚠️ 환경변수를 손으로 바꿀 때 (standalone 빌드의 함정)
+
+`output: "standalone"` 빌드는 **빌드 시점에 `.env.production`을 `.next/standalone/`으로 복사**하고,
+`server.js`가 시작할 때 `process.chdir(__dirname)`으로 이동해 **그 사본을 읽는다.**
+프로젝트 루트의 `.env.production`만 고치면 아무 일도 일어나지 않는다.
+
+```bash
+cd /var/www/dic.bizos.kr
+vi .env.production                              # 1) 원본 수정
+cp .env.production .next/standalone/.env.production   # 2) 사본 갱신 ← 빠뜨리기 쉬움
+pm2 restart dicpress                            # 3) 재시작
+```
+
+재빌드(`npm run build`)를 하면 2번은 자동으로 처리된다. CI 배포는 빌드를 돌리므로 문제없다.
+
+또한 **`pm2 reload`는 프로세스 환경변수를 갱신하지 않는다**(`Use --update-env...` 경고가 그 뜻).
+PM2가 예전에 주입해 둔 값이 있으면 Next의 `loadEnvConfig`가 덮어쓰지 않으므로 그 값이 이긴다.
+PM2 주입값을 확인·제거하려면:
+
+```bash
+tr '\0' '\n' < /proc/$(pm2 pid dicpress)/environ | grep -i <변수명>
+pm2 delete dicpress && pm2 start ecosystem.config.js --env production && pm2 save
+```
+
+비밀값은 `ecosystem.config.js`에 넣지 않는다 — 이 파일은 커밋 대상이라 저장소에 남는다.
+서버 `.env.production`이 올바른 위치다(`.gitignore` 대상이라 `git reset --hard`로 지워지지 않는다).
+
 ---
 
 ## 마일스톤 현황
