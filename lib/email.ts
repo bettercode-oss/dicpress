@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { maskEmail, maskEmails } from "@/lib/mask";
 
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "BetterCode 용어사전";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -22,8 +23,10 @@ export async function sendPasskeyRegistrationEmail(to: string, name: string, tok
     `,
   });
   if (error) {
-    console.error("[Resend] 이메일 발송 실패:", JSON.stringify(error));
-    throw new Error(`이메일 발송 실패: ${error.message}`);
+    // Resend 응답 메시지 안에 이메일 주소가 박혀 오므로 통째로 마스킹한다.
+    console.error(`[Resend] 이메일 발송 실패 (${maskEmail(to)}):`, maskEmails(JSON.stringify(error)));
+    // 호출부가 잡지 않아 Next 에러 로그에도 남는다. 던지는 메시지도 마스킹한다.
+    throw new Error(maskEmails(`이메일 발송 실패: ${error.message}`));
   }
   console.log("[Resend] 이메일 발송 성공:", data?.id);
 }
