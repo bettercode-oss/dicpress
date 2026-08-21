@@ -27,10 +27,14 @@ app/
     documents/       — 관리자 CRUD API
 
 lib/
+  authz.ts           — requireSession(roles?): API 라우트 공통 인증·역할 검사
+  document-access.ts — 문서 접근 정책 (canAccessDocument / requireDocumentAccess / documentScope)
   entry-summary.ts   — getEntrySummary(), getEntry(), EntryData 타입
   markdown.ts        — markdownToReact(): rehype-react로 RSC 트리 반환
   build-info.ts      — NEXT_PUBLIC_* 빌드 메타 (버전, gitSha, buildTime)
   site.ts            — SITE_URL, SITE_NAME 환경변수
+  webauthn.ts        — RP_ID/ORIGIN, challenge·토큰 발급/소비
+  email.ts           — Resend 발송. mask.ts로 로그의 주소 마스킹
 
 components/
   InternalLink.tsx   — async RSC: 내부 링크에 HelpTooltip 자동 부착
@@ -73,6 +77,19 @@ docs/
 응답: `{ summary, title, content, contentHtml }` (없으면 전부 null).
 연동 가이드: `docs/integration.md` 참고.
 
+### 진행 중 — 관리자 콘솔 분리 (Epic #68)
+
+관리자 기능은 `admin.bizos.kr`의 별도 앱(`bettercode-oss/admin-console`)으로 이전 중이다.
+**관리자 쪽 코드를 새로 짤 때는 이 방향을 전제로 한다.**
+
+- 브라우저는 admin.bizos.kr하고만 통신하고, 그 서버가 루프백(`127.0.0.1:3001`)으로 dicpress를 호출한다(BFF).
+  따라서 **관리자 API에 CORS를 추가할 일은 없다.**
+- 서비스 간 인증은 60초짜리 actor JWT. dicpress가 매 요청 DB에서 role/status를 재확인한다.
+  세션 쿠키를 서브도메인끼리 공유하는 방식은 채택하지 않았다(`__Host-` CSRF 쿠키 제약, 동명 쿠키 중복).
+- **문서 쓰기는 계속 dicpress 안에서 일어나야 한다.** `revalidatePath`는 호출한 프로세스의 캐시만
+  무효화하므로, 콘솔이 Prisma로 직접 쓰면 공개 페이지가 최대 10분(`revalidate = 600`)간 낡은 채로 남는다.
+- 관리자 화면 로직을 페이지 서버 컴포넌트의 직접 Prisma 조회로 새로 넣지 말 것 — `/api/admin/*`로 낸다.
+
 ### summary 추출 전략
 `Document.summary` 필드 우선 → 없으면 `contentMd`에서 자동 추출.
 - 줄 단위 순회: heading(`#`) 줄·코드 펜스 내부 건너뜀
@@ -87,6 +104,19 @@ docs/
 ### 관리자 인증
 NextAuth v5 Credentials provider. `trustHost: true` (auth.config.ts).
 PM2 `env_production`에 `AUTH_TRUST_HOST: "true"` 설정 필수 (역방향 프록시 환경).
+
+**⚠️ 미들웨어는 API를 보호하지 않는다.** `proxy.ts`(Next 16에서 `middleware.ts`가 개명된 것)의
+matcher가 `api`를 제외하므로, **모든 API 라우트는 스스로 인증을 검사해야 한다.**
+새 라우트를 만들 때 `lib/authz.ts`의 `requireSession()`을 쓴다.
+
+```ts
+const actor = await requireSession(["OWNER", "ADMIN"]); // roles 생략 시 로그인만 확인
+if (actor instanceof NextResponse) return actor;
+```
+
+문서를 다루는 라우트는 `lib/document-access.ts`도 함께 쓴다 —
+**OWNER/ADMIN은 전체 문서, AUTHOR는 본인 문서만**이 유일한 정책 지점이다.
+사용자가 보낸 `authorId` 같은 신원 값은 절대 신뢰하지 않고 세션에서 가져온다.
 
 ### 빌드 버전
 CI가 빌드 전 환경변수 주입:
@@ -143,6 +173,20 @@ pm2 logs dicpress --lines 50
 
 `ecosystem.config.js`는 `__dirname` 기반 절대 경로 사용 — 환경변수 `DEPLOY_PATH` 불필요.
 
+### ⚠️ nginx 설정은 CI가 반영하지 않는다
+
+`deploy/nginx.conf.template`은 `deploy/setup.sh`가 **최초 1회만** 읽어
+`/etc/nginx/sites-available/$DOMAIN`을 만든다. 템플릿을 고쳐 push해도 서버 파일은 그대로다.
+서버에서 직접 고치고 reload해야 한다.
+
+```bash
+vi /etc/nginx/sites-available/dic.bizos.kr
+nginx -t && systemctl reload nginx
+```
+
+미반영 항목이 있으면 여기에 적어 둔다:
+- `client_max_body_size 10m` (#61) — 기본값 1MB라 앱이 허용하는 5MB 이미지가 413으로 잘린다
+
 ### ⚠️ 환경변수를 손으로 바꿀 때 (standalone 빌드의 함정)
 
 `output: "standalone"` 빌드는 **빌드 시점에 `.env.production`을 `.next/standalone/`으로 복사**하고,
@@ -176,17 +220,27 @@ pm2 delete dicpress && pm2 start ecosystem.config.js --env production && pm2 sav
 
 | 마일스톤 | 상태 |
 |---|---|
-| M1 - dogfooding | 진행 중 (Epic #32 하위 이슈 완료 후 종료) |
-| M2 - 외부 사이트 적용 | 진행 중 |
-
-### M1 오픈 이슈
-- **#37** password-only SLUG 연결 (사용자가 `password-only` 문서 작성 후 진행)
-- **#32** Epic: Tooltip 적용 마무리 (#37 완료 후 닫기)
+| M1 - dogfooding | 완료 (#32, #37 종료) |
+| M2 - 외부 사이트 적용 | 진행 중 (open 3) |
+| M3 - 권한 체계와 Passkey 적용 | 완료 (closed 12) |
+| M4 - 관리자 콘솔 분리 | 진행 중 (Epic #68) |
 
 ### M2 오픈 이슈
 - **#1** Passkey 사용을 낯설어 하는 사용자를 위한 도움말 제공
 - **#10** ordera.bettercode.kr/signin 적용 (ordera 프로젝트 필요)
 - **#11** ordera.libaitian.kr/signin 적용 (ordera 프로젝트 필요)
+
+### M4 오픈 이슈 — 순서대로 진행할 것
+- **#68** Epic: 관리자 기능을 admin.bizos.kr 통합 콘솔로 분리
+- **#63** Phase 1: Actor 인증 계층 + 신규 Admin API
+- **#64** Phase 2: admin.bizos.kr 인프라 스캐폴딩
+- **#65** Phase 3: WebAuthn RP ID 를 `bizos.kr` 로 전환 ⚠️ 잠금 위험. #66 보다 **먼저**
+- **#66** Phase 4: 관리자 콘솔 기능 구현 (두 UI 병행 운영)
+- **#67** Phase 5: 컷오버 — dicpress 관리자 표면 닫기
+
+### 마일스톤 밖 오픈 이슈
+- **#51** 등록 링크 재발송 기능 (#65 의 CLI 초대 스크립트와 겹침)
+- **#60** Resend SDK 자체 console.error 가 maskEmails() 를 우회함
 
 ---
 
@@ -195,7 +249,7 @@ pm2 delete dicpress && pm2 start ecosystem.config.js --env production && pm2 sav
 | 변수 | 용도 | 위치 |
 |---|---|---|
 | `DATABASE_URL` | Prisma DB 연결 | `.env` |
-| `AUTH_SECRET` | NextAuth 서명 | `.env` |
+| `NEXTAUTH_SECRET` | NextAuth 서명. v5는 `AUTH_SECRET`을 먼저 보고 이 이름으로 폴백한다 | `.env` |
 | `NEXT_PUBLIC_SITE_URL` | SITE_URL (내부 링크 판별) | `.env` |
 | `NEXT_PUBLIC_SITE_NAME` | 사이트 표시명 | `.env` |
 | `AUTH_TRUST_HOST` | NextAuth 프록시 신뢰 | PM2 env_production |
