@@ -18,6 +18,9 @@ server {
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_ciphers         HIGH:!aNULL:!MD5;
 
+    # 업로드 본문 크기 — 기본값 1m 이면 앱이 허용하는 5MB 이미지가 413 으로 잘린다
+    client_max_body_size 10m;
+
     # 업로드 파일 직접 서빙 (Nginx가 Node.js 없이 처리)
     location /uploads/ {
         alias ${DEPLOY_PATH}/public/uploads/;

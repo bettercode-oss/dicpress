@@ -2,17 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { markdownToHtml } from "@/lib/markdown";
+import { requireSession } from "@/lib/authz";
+import { requireDocumentAccess } from "@/lib/document-access";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const actor = await requireSession();
+  if (actor instanceof NextResponse) return actor;
+
   const { id } = await params;
+  const existing = await requireDocumentAccess(actor, id);
+  if (existing instanceof NextResponse) return existing;
+
   const { versionNo } = await req.json();
-
-  const [existing, target] = await Promise.all([
-    prisma.document.findUnique({ where: { id } }),
-    prisma.documentVersion.findFirst({ where: { documentId: id, versionNo } }),
-  ]);
-
-  if (!existing) return NextResponse.json({ error: "Document not found" }, { status: 404 });
+  const target = await prisma.documentVersion.findFirst({ where: { documentId: id, versionNo } });
   if (!target) return NextResponse.json({ error: "Version not found" }, { status: 404 });
 
   const contentHtml = await markdownToHtml(target.contentMd);
