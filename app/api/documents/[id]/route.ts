@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { markdownToHtml } from "@/lib/markdown";
+import { requireSession } from "@/lib/authz";
+import { canAccessDocument, forbidden, requireDocumentAccess } from "@/lib/document-access";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
+  const actor = await requireSession();
+  if (actor instanceof NextResponse) return actor;
+
   const { id } = await params;
 
   const document = await prisma.document.findUnique({
@@ -17,16 +22,21 @@ export async function GET(_req: NextRequest, { params }: Params) {
   });
 
   if (!document) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canAccessDocument(actor, document)) return forbidden();
+
   return NextResponse.json(document);
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
+  const actor = await requireSession();
+  if (actor instanceof NextResponse) return actor;
+
   const { id } = await params;
+  const existing = await requireDocumentAccess(actor, id);
+  if (existing instanceof NextResponse) return existing;
+
   const body = await req.json();
   const { title, slug, summary, contentMd, status, thumbnailUrl, tags } = body;
-
-  const existing = await prisma.document.findUnique({ where: { id } });
-  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const contentHtml = contentMd ? await markdownToHtml(contentMd) : undefined;
 
@@ -89,10 +99,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const { id } = await params;
+  const actor = await requireSession();
+  if (actor instanceof NextResponse) return actor;
 
-  const doc = await prisma.document.findUnique({ where: { id }, select: { slug: true } });
-  if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { id } = await params;
+  const doc = await requireDocumentAccess(actor, id);
+  if (doc instanceof NextResponse) return doc;
 
   await prisma.document.delete({ where: { id } });
 

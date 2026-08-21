@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { markdownToHtml } from "@/lib/markdown";
 import { DocumentStatus } from "@prisma/client";
+import { requireSession } from "@/lib/authz";
+import { documentScope } from "@/lib/document-access";
 
 export async function GET(req: NextRequest) {
+  const actor = await requireSession();
+  if (actor instanceof NextResponse) return actor;
+
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") as DocumentStatus | null;
   const tag = searchParams.get("tag");
@@ -11,6 +16,7 @@ export async function GET(req: NextRequest) {
 
   const documents = await prisma.document.findMany({
     where: {
+      ...documentScope(actor),
       ...(status && { status }),
       ...(tag && { tags: { some: { tag: { name: tag } } } }),
       ...(q && {
@@ -38,8 +44,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const actor = await requireSession();
+  if (actor instanceof NextResponse) return actor;
+
   const body = await req.json();
-  const { title, slug, summary, contentMd, status, thumbnailUrl, tags, authorId } = body;
+  const { title, slug, summary, contentMd, status, thumbnailUrl, tags } = body;
 
   const contentHtml = await markdownToHtml(contentMd || "");
 
@@ -52,7 +61,7 @@ export async function POST(req: NextRequest) {
       contentHtml,
       status: status || "DRAFT",
       thumbnailUrl,
-      authorId,
+      authorId: actor.id,
       ...(status === "PUBLISHED" && { publishedAt: new Date() }),
       ...(tags?.length && {
         tags: {
