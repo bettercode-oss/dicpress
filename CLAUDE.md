@@ -175,17 +175,30 @@ pm2 logs dicpress --lines 50
 
 ### ⚠️ nginx 설정은 CI가 반영하지 않는다
 
+> **템플릿 수정 = 서버 반영이 아니다.**
+> `deploy/nginx.conf.template`을 고치고 커밋·push·배포까지 끝내도
+> 서버의 nginx는 **아무것도 달라지지 않는다.** 반드시 서버에서 직접 고쳐야 한다.
+
 `deploy/nginx.conf.template`은 `deploy/setup.sh`가 **최초 1회만** 읽어
-`/etc/nginx/sites-available/$DOMAIN`을 만든다. 템플릿을 고쳐 push해도 서버 파일은 그대로다.
-서버에서 직접 고치고 reload해야 한다.
+`/etc/nginx/sites-available/$DOMAIN`을 만든다. 그 뒤로 둘은 갈라진 두 파일이고,
+CI 배포(`.github/workflows/deploy.yml`)는 nginx를 건드리지 않는다.
+저장소의 템플릿은 **새 서버를 세울 때 쓰는 원본**일 뿐, 운영 중인 설정의 사본이 아니다.
+
+즉 nginx를 바꾸려면 **항상 두 곳을 고친다**:
+
+1. 저장소 `deploy/nginx.conf.template` — 다음에 세울 서버를 위해
+2. 서버 `/etc/nginx/sites-available/$DOMAIN` — 지금 도는 서버를 위해
 
 ```bash
 vi /etc/nginx/sites-available/dic.bizos.kr
 nginx -t && systemctl reload nginx
 ```
 
-미반영 항목이 있으면 여기에 적어 둔다:
-- `client_max_body_size 10m` (#61) — 기본값 1MB라 앱이 허용하는 5MB 이미지가 413으로 잘린다
+`nginx -t` 없이 reload하지 말 것 — 문법 오류면 nginx가 뜨지 않아 사이트 전체가 죽는다.
+
+**서버에 아직 반영되지 않은 항목** (반영했으면 지운다):
+- `client_max_body_size 10m` — 기본값 1MB라 앱이 허용하는 5MB 이미지가 413으로 잘린다.
+  템플릿에는 #61에서 들어갔지만 위 이유로 서버에는 없다
 
 ### ⚠️ 환경변수를 손으로 바꿀 때 (standalone 빌드의 함정)
 
