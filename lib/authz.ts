@@ -69,6 +69,10 @@ async function loadActiveActor(
  * Authorization "";`) 토큰 경로를 루프백 전용으로 만드는 데 있다. 자세한 근거는
  * `docs/decisions/002-admin-console-service-token.md` 참고.
  *
+ * 앱 안에서 "루프백에서 온 요청인가" 를 판별하려 하지 말 것. `X-Forwarded-For` 는
+ * 클라이언트가 보낸 값이 그대로 전달되므로(Next 개발 서버에서 실측) 위조할 수 있고,
+ * 그걸로 만든 가드는 막아 주는 것 없이 안전하다는 착각만 준다.
+ *
  * 헤더로 넘어온 role 류 정보는 어떤 것도 신뢰하지 않는다. 매 요청 DB 에서 다시 읽는다.
  */
 export async function requireActor(
@@ -101,13 +105,6 @@ async function serviceActor(req: Request, authorization: string): Promise<Actor 
     // 조용히 401 로 두면 "콘솔이 왜 401이지?" 로 한나절을 태운다. 시끄럽게 실패한다.
     console.error("[authz] ADMIN_SERVICE_TOKEN 이 설정되지 않아 서비스 토큰 인증을 처리할 수 없습니다.");
     return NextResponse.json({ error: "서비스 토큰 미설정" }, { status: 503 });
-  }
-
-  // nginx 는 프록시하는 모든 요청에 X-Forwarded-For 를 세팅한다. 토큰 경로에서 이 헤더가
-  // 보인다는 것은 공개 인터넷을 거쳐 왔다는 뜻이므로 거절한다. 콘솔은 루프백으로 부른다.
-  if (process.env.ADMIN_SERVICE_TOKEN_LOOPBACK_ONLY !== "false" && req.headers.get("x-forwarded-for")) {
-    console.warn("[authz] 외부 경유 요청이 서비스 토큰을 사용하려 했습니다.");
-    return NextResponse.json({ error: "인증 필요" }, { status: 401 });
   }
 
   const match = /^Bearer (.+)$/.exec(authorization);
