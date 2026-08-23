@@ -291,5 +291,4 @@ pm2 delete dicpress && pm2 start ecosystem.config.js --env production && pm2 sav
 | `RESEND_API_KEY` | Resend 이메일 발송 | `.env` (서버에도 필요) |
 | `RESEND_FROM` | 발신 주소 — 인증된 도메인이어야 함 | `.env` (서버에도 필요) |
 | `ADMIN_SERVICE_TOKEN` | 관리자 콘솔의 서버 간 호출 인증. **이 토큰은 사실상 OWNER 권한이다** | `.env` (서버에도 필요) |
-| `ADMIN_SERVICE_TOKEN_LOOPBACK_ONLY` | 토큰 경로를 루프백 전용으로 제한 (기본 동작, `"false"`로 해제) | `.env` (선택) |
 | `NEXT_PUBLIC_GIT_SHA` 외 3개 | 빌드 버전 표시 | CI 빌드 시 주입 |

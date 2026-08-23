@@ -44,8 +44,11 @@ OWNER 권한을 얻습니다. 즉 이 토큰은 서비스 토큰이라기보다 
 
 실질적인 방어는 **nginx 가 클라이언트발 `Authorization` 을 비우는 것**입니다
 (`proxy_set_header Authorization "";`). 그래서 토큰 경로는 공개 인터넷에서 도달할 수 없고,
-루프백으로 들어오는 콘솔에서만 살아 있습니다. 보조로 dicpress 는 토큰 요청에
-`X-Forwarded-For` 가 붙어 있으면(= 공개 경로를 거쳐 왔으면) 거절합니다.
+루프백으로 들어오는 콘솔에서만 살아 있습니다.
+
+앱 안에서 "루프백에서 왔는가"를 판별하지는 않습니다. `X-Forwarded-For` 는 클라이언트가
+보낸 값이 그대로 전달되므로 위조할 수 있고, 그런 가드는 안전하다는 착각만 줍니다.
+**경계는 전적으로 nginx 설정에 있습니다.**
 
 **따라서 콘솔은 반드시 `http://127.0.0.1:3001` 로 부릅니다.** 공개 URL 로 부르면
 nginx 가 헤더를 비워 401 이 납니다.
@@ -55,7 +58,7 @@ nginx 가 헤더를 비워 401 이 납니다.
 | 코드 | 뜻 |
 |---|---|
 | 400 | `X-Actor-Email` 누락 또는 형식 오류 |
-| 401 | 토큰 불일치, `Bearer` 형식 아님, 외부 경유(`X-Forwarded-For` 있음) |
+| 401 | 토큰 불일치 또는 `Bearer` 형식 아님 |
 | 403 | 해당 이메일의 계정이 없거나 비활성, 또는 역할 부족 |
 | 404 | 대상 없음 |
 | 409 | slug 중복 |
@@ -199,7 +202,7 @@ async function dicFetch<T>(actorEmail: string, path: string, init: RequestInit =
   if (!res.ok) {
     const body = (await res.text().catch(() => "")).slice(0, 200);
     const hint =
-      res.status === 401 ? " 토큰이 다르거나 공개 URL 로 호출했습니다(루프백을 쓰세요)."
+      res.status === 401 ? " 토큰이 다릅니다. 공개 URL 로 불렀다면 nginx 가 헤더를 비웁니다 — 루프백을 쓰세요."
       : res.status === 403 ? " 해당 이메일의 dicpress 계정이 없거나 권한이 부족합니다."
       : res.status === 503 ? " dicpress 서버에 ADMIN_SERVICE_TOKEN 이 없습니다."
       : "";
