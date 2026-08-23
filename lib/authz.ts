@@ -20,11 +20,52 @@ export type Actor = {
 const MAX_EMAIL_LENGTH = 254;
 
 /**
+ * 서비스 토큰의 최소 길이.
+ *
+ * 이 토큰은 사실상 OWNER 권한이라(파일 상단 「신뢰 경계」 참고) 짧은 값을 허용할 이유가 없다.
+ * `openssl rand -base64 48` 이 64자를 준다. 32자는 "실수로 짧게 넣은 것"을 걸러내는 하한이다.
+ */
+const MIN_TOKEN_LENGTH = 32;
+
+/**
+ * 서비스 토큰 경로를 쓸 수 있는지 **기동 시 한 번** 판정한다.
+ *
+ * 매 요청 `process.env` 를 다시 읽지 않는 이유는 두 가지다. 판정이 요청마다 흔들리지 않고,
+ * 경고를 요청마다 찍지 않는다. 값이 없거나 부실하면 그 경로는 **영구 비활성**이고
+ * 어떤 `Authorization` 헤더도 통과하지 못한다.
+ *
+ * 여기서 죽지 않는다. 서비스 토큰이 없다고 앱을 못 뜨게 하면 자체 관리자 UI 까지 같이
+ * 죽는다 — 그건 콘솔 연동이 안 되는 것보다 훨씬 큰 사고다. 세션 경로는 그대로 산다.
+ */
+const SERVICE_TOKEN: string | null = (() => {
+  const raw = process.env.ADMIN_SERVICE_TOKEN?.trim();
+
+  if (!raw) {
+    console.warn(
+      "[authz] ADMIN_SERVICE_TOKEN 이 없습니다. 관리자 콘솔(admin.bizos.kr) 연동이 비활성화됩니다. " +
+        "자체 관리자 UI 는 세션으로 정상 동작합니다.",
+    );
+    return null;
+  }
+
+  if (raw.length < MIN_TOKEN_LENGTH) {
+    // 길이만 말한다. 값은 절대 싣지 않는다.
+    console.warn(
+      `[authz] ADMIN_SERVICE_TOKEN 이 너무 짧습니다(${raw.length}자, 최소 ${MIN_TOKEN_LENGTH}자). ` +
+        "관리자 콘솔 연동을 비활성화합니다. openssl rand -base64 48 로 다시 만드세요.",
+    );
+    return null;
+  }
+
+  return raw;
+})();
+
+/**
  * 서비스 토큰을 비교한다.
  *
- * 해시를 거치는 이유는 두 가지다. `timingSafeEqual` 은 길이가 다르면 `RangeError` 를
- * 던지는데, 그대로 500 이 나가면 그 자체가 "길이가 다르다"는 오라클이 된다.
- * 해시로 길이를 32바이트에 고정하면 예외도 길이 누설도 없다.
+ * 양쪽을 sha256 으로 해싱해 **고정 32바이트**로 맞춘 뒤 비교한다. `timingSafeEqual` 은 길이가
+ * 다르면 `RangeError` 를 던지는데, 그게 500 으로 나가면 그 자체가 "길이가 다르다"는 오라클이
+ * 된다. 해싱하면 예외도 길이 누설도 함께 사라진다 — 길이 선검사보다 이쪽이 낫다.
  */
 function tokenMatches(given: string, expected: string): boolean {
   const a = createHash("sha256").update(given).digest();
@@ -100,15 +141,15 @@ async function resolveActor(req: Request): Promise<Actor | NextResponse> {
 }
 
 async function serviceActor(req: Request, authorization: string): Promise<Actor | NextResponse> {
-  const expected = process.env.ADMIN_SERVICE_TOKEN;
-  if (!expected) {
-    // 조용히 401 로 두면 "콘솔이 왜 401이지?" 로 한나절을 태운다. 시끄럽게 실패한다.
-    console.error("[authz] ADMIN_SERVICE_TOKEN 이 설정되지 않아 서비스 토큰 인증을 처리할 수 없습니다.");
-    return NextResponse.json({ error: "서비스 토큰 미설정" }, { status: 503 });
+  // 토큰이 없거나 부실하면 이 경로는 존재하지 않는 것과 같다. 유효한 자격 증명이 있을 수
+  // 없으므로 401 이 정직한 답이다. 503 은 "여기 토큰 경로가 있는데 설정이 틀렸다" 를 밖에
+  // 알려 줄 뿐이다 — 진단은 기동 시 경고 로그가 이미 하고 있다.
+  if (!SERVICE_TOKEN) {
+    return NextResponse.json({ error: "인증 필요" }, { status: 401 });
   }
 
   const match = /^Bearer (.+)$/.exec(authorization);
-  if (!match || !tokenMatches(match[1], expected)) {
+  if (!match || !tokenMatches(match[1], SERVICE_TOKEN)) {
     console.warn("[authz] 서비스 토큰이 일치하지 않습니다.");
     return NextResponse.json({ error: "인증 필요" }, { status: 401 });
   }
