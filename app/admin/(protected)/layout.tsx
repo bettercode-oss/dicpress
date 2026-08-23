@@ -1,14 +1,17 @@
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
 import { signOut } from "@/auth";
+import { redirect } from "next/navigation";
+import { getSessionActor } from "@/lib/authz";
 import Link from "next/link";
 import Image from "next/image";
 import { SITE_NAME } from "@/lib/site";
 import { buildInfo } from "@/lib/build-info";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
-  if (!session) redirect("/admin/login");
+  // auth.config.ts 의 authorized() 는 edge 런타임이라 Prisma 를 쓸 수 없다. 그래서
+  // 정지된 계정을 걸러낼 수 있는 곳은 여기뿐이다. 이 가드가 없으면 SUSPENDED 계정이
+  // 관리 화면을 계속 열 수 있고, 편집 화면은 문서 본문까지 그대로 보여준다.
+  const actor = await getSessionActor();
+  if (!actor) redirect("/admin/login");
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -18,13 +21,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </Link>
         <nav className="flex items-center gap-3">
           <Link href="/admin/documents" className="text-xs text-gray-500 hover:text-gray-900">문서</Link>
-          {["OWNER", "ADMIN"].includes(session.user?.role ?? "") && (
+          {["OWNER", "ADMIN"].includes(actor.role) && (
             <Link href="/admin/users" className="text-xs text-gray-500 hover:text-gray-900">사용자</Link>
           )}
           <Link href="/" target="_blank" className="text-xs text-gray-500 hover:text-gray-900">사이트 보기 ↗</Link>
         </nav>
         <div className="flex-1" />
-        <span className="text-xs text-gray-400">{session.user?.email}</span>
+        <span className="text-xs text-gray-400">{actor.email}</span>
         <form
           action={async () => {
             "use server";
