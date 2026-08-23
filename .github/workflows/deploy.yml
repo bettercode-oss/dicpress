@@ -39,6 +39,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 배포 자체는 SSH 로 서버에서 돌지만, 마지막 경계 검사 스크립트는 러너에서
+      # 실행하므로 저장소가 필요하다.
+      - uses: actions/checkout@v4
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -95,3 +99,13 @@ jobs:
             exit 1
           fi
           echo "✅ 배포 확인 완료: $DEPLOYED"
+
+      # 관리자 API 의 보안 경계(nginx 가 Authorization 을 비우는 것)가 살아 있는지 확인한다.
+      # 그 설정은 서버에만 있고 CI 가 배포하지 않아서, 조용히 사라져도 알 방법이 없다.
+      #
+      # 실패해도 롤백하지 않는다 — 이미 배포된 코드 자체는 정상이고, 문제는 nginx 설정이다.
+      # 되돌린다고 고쳐지지 않으므로 워크플로만 실패시켜 사람을 부른다.
+      - name: Verify auth boundary
+        env:
+          ADMIN_SERVICE_TOKEN: ${{ secrets.ADMIN_SERVICE_TOKEN }}
+        run: ./scripts/verify-auth-boundary.sh
