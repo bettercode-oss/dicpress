@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
   const { title, slug, summary, contentMd, status, thumbnailUrl, tags } = body;
 
   const contentHtml = await markdownToHtml(contentMd || "");
-  const isPublished = status === "PUBLISHED";
 
   try {
     const document = await prisma.document.create({
@@ -38,7 +37,7 @@ export async function POST(req: NextRequest) {
         status: status || "DRAFT",
         thumbnailUrl,
         authorId: actor.id,
-        ...(isPublished && { publishedAt: new Date() }),
+        ...(status === "PUBLISHED" && { publishedAt: new Date() }),
         ...(tags?.length && {
           tags: {
             create: tags.map((name: string) => ({
@@ -51,7 +50,8 @@ export async function POST(req: NextRequest) {
 
     // PUBLISHED 로 바로 만들면 공개 화면이 낡은 채로 남는다.
     // 목록은 revalidate=60, 사이트맵은 3600 이라 사이트맵이 특히 오래 간다.
-    if (isPublished) {
+    // 요청 본문이 아니라 **생성 결과**를 본다 — PATCH 와 같은 기준이다.
+    if (document.status === "PUBLISHED") {
       revalidatePath(`/${document.slug}`);
       revalidatePath("/");
       revalidatePath("/sitemap.xml");

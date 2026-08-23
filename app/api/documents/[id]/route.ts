@@ -84,16 +84,24 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     });
   });
 
-  // 배포 또는 비공개 전환 시 공개 페이지 캐시 즉시 갱신
-  const slugChanged = slug && slug !== existing.slug;
-  const becamePublished = status === "PUBLISHED";
-  const becameUnpublished = status === "DRAFT" || status === "ARCHIVED";
+  // 공개 페이지 캐시 갱신.
+  //
+  // 판단 기준은 **문서의 실제 상태**다. 요청 본문에 무엇이 실려 왔는지가 아니다.
+  // 예전 조건(`status === "PUBLISHED"`)은 "요청이 PUBLISHED 를 보냈다" 는 뜻이라,
+  // `{ contentMd }` 만 담은 부분 PATCH 로 이미 발행된 문서를 고치면 조건이 거짓이 되어
+  // 공개 페이지가 최대 10분(`revalidate = 600`) 낡은 채로 남았다.
+  // dicpress 자체 편집기는 자동저장마다 status 를 함께 보내 우연히 가려져 있었지만,
+  // 부분 갱신을 보내는 클라이언트(관리자 콘솔)에서는 그대로 드러난다.
+  const wasPublished = existing.status === "PUBLISHED";
+  const isPublished = document.status === "PUBLISHED";
+  const slugChanged = document.slug !== existing.slug;
 
-  if (becamePublished || becameUnpublished || slugChanged) {
+  if (wasPublished || isPublished) {
     revalidatePath(`/${document.slug}`);
     revalidatePath("/");
     // 사이트맵은 revalidate=3600 이라 손대지 않으면 한 시간 낡은 채로 남는다.
     revalidatePath("/sitemap.xml");
+    // 슬러그가 바뀌면 예전 주소의 캐시도 지운다.
     if (slugChanged) revalidatePath(`/${existing.slug}`);
   }
 
