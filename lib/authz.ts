@@ -154,7 +154,13 @@ async function serviceActor(req: Request, authorization: string): Promise<Actor 
     return NextResponse.json({ error: "인증 필요" }, { status: 401 });
   }
 
-  const email = (req.headers.get("x-actor-email") ?? "").trim();
+  // 이메일은 소문자로 정규화한다. Postgres 의 `=` 는 대소문자를 구분하므로, 콘솔이
+  // `Kim@x.com` 을 보내고 DB 에 `kim@x.com` 이 있으면 조용히 403 이 난다.
+  //
+  // `mode: "insensitive"` + `findFirst` 로 푸는 방법은 쓰지 않는다. 대소문자만 다른 두 행이
+  // 있으면 어느 쪽이 잡힐지 비결정적이고, 그 자체가 권한 우회 벡터가 된다.
+  // 여기서는 정확 일치만 하고, 저장 쪽 정규화는 별도로 다룬다.
+  const email = (req.headers.get("x-actor-email") ?? "").trim().toLowerCase();
   if (!email || email.length > MAX_EMAIL_LENGTH) {
     return NextResponse.json({ error: "X-Actor-Email 헤더가 필요합니다" }, { status: 400 });
   }
