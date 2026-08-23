@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { markdownToHtml } from "@/lib/markdown";
-import { requireSession } from "@/lib/authz";
+import { requireActor } from "@/lib/authz";
 import { requireDocumentAccess } from "@/lib/document-access";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const actor = await requireSession();
+  const actor = await requireActor(req);
   if (actor instanceof NextResponse) return actor;
 
   const { id } = await params;

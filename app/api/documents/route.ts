@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { markdownToHtml } from "@/lib/markdown";
 import { DocumentStatus } from "@prisma/client";
-import { requireSession } from "@/lib/authz";
+import { requireActor } from "@/lib/authz";
 import { documentScope } from "@/lib/document-access";
 
 export async function GET(req: NextRequest) {
-  const actor = await requireSession();
+  const actor = await requireActor(req);
   if (actor instanceof NextResponse) return actor;
 
   const { searchParams } = new URL(req.url);
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const actor = await requireSession();
+  const actor = await requireActor(req);
   if (actor instanceof NextResponse) return actor;
 
   const body = await req.json();
