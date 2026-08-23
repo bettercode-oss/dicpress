@@ -95,6 +95,11 @@ docs/
 - **문서 쓰기는 계속 dicpress 안에서 일어나야 한다.** `revalidatePath` 는 호출한 프로세스의
   캐시만 무효화하므로, 콘솔이 Prisma 로 직접 쓰면 공개 목록(60초)·상세(600초)·
   사이트맵(3600초)이 그만큼 낡은 채로 남는다.
+- **⚠️ 목록을 갱신하려면 `revalidatePath("/", "layout")` 이어야 한다.** 왼쪽 키워드 목록은
+  `app/(public)/page.tsx` 가 아니라 **`app/(public)/layout.tsx`** 에서 조회하는데,
+  `revalidatePath("/")` 는 기본 타입이 `'page'` 라 레이아웃 세그먼트를 건드리지 못한다.
+  코드만 봐서는 드러나지 않고 로컬 dev 는 ISR 이 꺼져 있어 재현도 안 된다 —
+  운영에서 실측해서야 찾았다(#74). 사이트맵은 라우트 핸들러라 별도로 호출해야 한다.
 - 계약 문서는 `docs/admin-api.md`, 판단 근거는 `docs/decisions/002-admin-console-service-token.md`.
 
 > ⚠️ **폐기된 설계에 주의.** 이슈 #63·#65·#68 본문은 콘솔이 아직 없던 시점에 쓰였다.

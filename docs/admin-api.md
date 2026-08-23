@@ -164,9 +164,20 @@ nginx 가 헤더를 비워 401 이 납니다.
 `GET` 은 태그와 최근 버전 10개를 포함한 문서 레코드입니다.
 `PATCH` 는 보낸 필드만 바꾸고, 바꾸기 전 내용을 자동으로 새 버전으로 남깁니다.
 
-**배포·비공개 전환·slug 변경·삭제 시 `revalidatePath` 가 dicpress 프로세스 안에서 실행됩니다.**
-콘솔이 DB 를 직접 쓰면 이게 일어나지 않아 공개 페이지가 낡은 채로 남습니다.
+**문서가 발행 상태이거나 발행 상태였으면 `revalidatePath` 가 dicpress 프로세스 안에서
+실행됩니다.** 콘솔이 DB 를 직접 쓰면 이게 일어나지 않아 공개 페이지가 낡은 채로 남습니다.
 **그래서 문서 쓰기는 반드시 이 API 를 지나야 합니다.**
+
+무효화 범위는 운영에서 실측했습니다(#74).
+
+| 대상 | 갱신 |
+|---|---|
+| 상세 `/{slug}` | 즉시 (부분 PATCH 로도 확인 — prime 271ms 후 반영, ISR 창 600초) |
+| 왼쪽 키워드 목록 | 즉시 (`revalidatePath("/", "layout")`) |
+| `/sitemap.xml` | 즉시 (`lastmod` 갱신 확인) |
+
+> 목록은 `app/(public)/layout.tsx` 에서 조회하므로 **`"layout"` 타입 무효화가 필요**합니다.
+> `revalidatePath("/")` 만으로는 최대 60초 낡습니다.
 
 ### `GET /api/documents/{id}/versions` · `POST /api/documents/{id}/restore`
 

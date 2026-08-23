@@ -94,15 +94,23 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   // 부분 갱신을 보내는 클라이언트(관리자 콘솔)에서는 그대로 드러난다.
   const wasPublished = existing.status === "PUBLISHED";
   const isPublished = document.status === "PUBLISHED";
-  const slugChanged = document.slug !== existing.slug;
 
   if (wasPublished || isPublished) {
-    revalidatePath(`/${document.slug}`);
-    revalidatePath("/");
-    // 사이트맵은 revalidate=3600 이라 손대지 않으면 한 시간 낡은 채로 남는다.
+    // ⚠️ 두 번째 인자 "layout" 을 빼면 **왼쪽 키워드 목록이 갱신되지 않는다.**
+    //
+    // 그 목록은 `app/(public)/page.tsx` 가 아니라 `app/(public)/layout.tsx` 에서 조회한다.
+    // `revalidatePath("/")` 는 기본 타입이 'page' 라 레이아웃 세그먼트를 건드리지 못한다.
+    // 운영에서 실측했다 — 발행 직후에는 목록에 없다가 레이아웃 revalidate=60 의 자연 만료
+    // 시점인 T+66초에 나타났다(#74).
+    //
+    // 'layout' 은 그 아래 모든 공개 페이지를 함께 무효화하므로 상세 페이지와 바뀌기 전
+    // 슬러그까지 덮는다. 대신 편집 중 자동저장마다 공개 캐시가 통째로 날아간다.
+    // 조건을 "목록에 보이는 필드가 바뀔 때만" 으로 좁힐 수도 있지만, 바로 그런 영리한
+    // 조건이 직전에 우리를 물었고(#72), 편집기는 언제나 tags 를 함께 보내 이득도 없다.
+    revalidatePath("/", "layout");
+    // 사이트맵은 라우트 핸들러라 위 무효화에 포함되지 않는다. revalidate=3600 이라
+    // 손대지 않으면 한 시간 낡은 채로 남는다.
     revalidatePath("/sitemap.xml");
-    // 슬러그가 바뀌면 예전 주소의 캐시도 지운다.
-    if (slugChanged) revalidatePath(`/${existing.slug}`);
   }
 
   return NextResponse.json(document);
@@ -118,8 +126,8 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 
   await prisma.document.delete({ where: { id } });
 
-  revalidatePath(`/${doc.slug}`);
-  revalidatePath("/");
+  // 목록에서 빼려면 레이아웃까지 무효화해야 한다 — 위 PATCH 의 주석 참고 (#74).
+  revalidatePath("/", "layout");
   revalidatePath("/sitemap.xml");
 
   return NextResponse.json({ success: true });

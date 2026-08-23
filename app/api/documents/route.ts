@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
     // 목록은 revalidate=60, 사이트맵은 3600 이라 사이트맵이 특히 오래 간다.
     // 요청 본문이 아니라 **생성 결과**를 본다 — PATCH 와 같은 기준이다.
     if (document.status === "PUBLISHED") {
-      revalidatePath(`/${document.slug}`);
-      revalidatePath("/");
+      // "layout" 이 있어야 왼쪽 키워드 목록에 들어간다 — PATCH 의 주석 참고 (#74).
+      revalidatePath("/", "layout");
       revalidatePath("/sitemap.xml");
     }
 
