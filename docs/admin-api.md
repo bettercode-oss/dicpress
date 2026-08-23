@@ -92,14 +92,20 @@ nginx 가 헤더를 비워 401 이 납니다.
 
 | 코드 | 뜻 |
 |---|---|
-| 400 | `X-Actor-Email` 누락 또는 형식 오류 |
-| 401 | 토큰 불일치 또는 `Bearer` 형식 아님 |
+| 400 | `X-Actor-Email` 누락 또는 형식 오류, **쿼리 파라미터 값이 허용 목록 밖** |
+| 401 | 토큰 불일치, `Bearer` 형식 아님, **또는 서버에 토큰이 설정되지 않음** |
 | 403 | 해당 이메일의 계정이 없거나 비활성, 또는 역할 부족 |
 | 404 | 대상 없음 |
 | 409 | slug 중복 |
-| 503 | 서버에 `ADMIN_SERVICE_TOKEN` 이 설정되지 않음 |
 
-응답 본문은 `{ "error": "..." }` 입니다 (한국어).
+응답 본문은 `{ "error": "..." }` 입니다 (한국어). 400 은 어떤 값이 왜 틀렸는지와
+허용값을 함께 담습니다.
+
+> **401 은 두 가지를 뜻합니다.** 토큰이 다를 때와, 서버에 `ADMIN_SERVICE_TOKEN` 이 아예
+> 없을 때입니다. 후자를 503 으로 구분하지 않는 이유는, 토큰이 없으면 유효한 자격 증명이
+> 존재할 수 없으므로 401 이 정직하고 "여기 토큰 경로가 있는데 설정이 틀렸다" 를 밖에
+> 알려 줄 이유도 없기 때문입니다. **미설정 진단은 dicpress 기동 로그**가 맡습니다
+> (`[authz] ADMIN_SERVICE_TOKEN 이 없습니다…`).
 
 ---
 
@@ -112,11 +118,27 @@ nginx 가 헤더를 비워 401 이 납니다.
 | 역할 | 로그인만 (AUTHOR 포함) |
 | 쿼리 | `scope` `status` `q` `tag` `counts` |
 
-- `scope=all`(기본) — `OWNER`/`ADMIN` 은 전체, `AUTHOR` 는 본인 문서
+| 파라미터 | 허용값 | 없을 때 |
+|---|---|---|
+| `scope` | `all` \| `mine` | `all` |
+| `status` | `DRAFT` \| `PUBLISHED` \| `ARCHIVED` | 필터 없음 |
+| `counts` | `1` \| `true` \| `0` \| `false` | `false` |
+| `q` | 자유 문자열 — 제목·slug·요약 부분 일치 (대소문자 무시) | 필터 없음 |
+| `tag` | 태그 이름 | 필터 없음 |
+
+- `scope=all` — `OWNER`/`ADMIN` 은 전체, `AUTHOR` 는 본인 문서
 - `scope=mine` — 역할과 무관하게 본인 문서로 좁힘
-- `status` — `DRAFT` \| `PUBLISHED` \| `ARCHIVED`
-- `q` — 제목·slug·요약 부분 일치 (대소문자 무시)
-- `counts=1` — 상태별 개수 포함. `status` 필터를 **빼고** 세므로 탭 UI 에 바로 씁니다
+- `counts` 를 켜면 상태별 개수를 함께 줍니다. `status` 필터를 **빼고** 세므로 탭 UI 에 바로 씁니다
+
+> ⚠️ **허용 목록 밖의 값은 400 입니다.** 대소문자까지 정확해야 하므로 `status=published` 는
+> 거절됩니다. 예전에는 모르는 값이 조용히 "필터 없음" 으로 떨어져서, `status=DRAFT` 는
+> 0건인데 `status=DRAFTT` 는 전체를 돌려주는 상태였습니다(#79). 필터를 걸었다고 믿은 쪽이
+> 필터 없는 결과를 받는 일을 막으려는 것입니다.
+>
+> 값이 **비어 있는 것**(`?status=`)은 "지정 안 함" 으로 봅니다 — HTML 폼이 빈 필드를 그렇게
+> 보내고, 빈 값은 필터처럼 보이지 않기 때문입니다.
+>
+> 모르는 **파라미터 이름**은 그대로 무시합니다. Next 가 `_rsc` 같은 쿼리를 스스로 붙입니다.
 
 `AUTHOR` 가 `scope=all` 을 보내도 에러가 아니라 조용히 좁혀지고, 응답의 `scope` 에
 **실제 적용된 값**이 담깁니다.
@@ -248,9 +270,9 @@ async function dicFetch<T>(actorEmail: string, path: string, init: RequestInit =
   if (!res.ok) {
     const body = (await res.text().catch(() => "")).slice(0, 200);
     const hint =
-      res.status === 401 ? " 토큰이 다릅니다. 공개 URL 로 불렀다면 nginx 가 헤더를 비웁니다 — 루프백을 쓰세요."
+      res.status === 400 ? " 쿼리 파라미터 값이 허용 목록 밖입니다(응답 본문에 허용값이 있습니다)."
+      : res.status === 401 ? " 토큰이 다르거나, 서버에 토큰이 없거나, 공개 URL 로 불러 nginx 가 헤더를 비웠습니다."
       : res.status === 403 ? " 해당 이메일의 dicpress 계정이 없거나 권한이 부족합니다."
-      : res.status === 503 ? " dicpress 서버에 ADMIN_SERVICE_TOKEN 이 없습니다."
       : "";
     throw new Error(`[dicpress] ${path} 실패 (${res.status}).${hint} ${body}`);
   }
