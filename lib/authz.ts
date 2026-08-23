@@ -131,6 +131,17 @@ async function serviceActor(req: Request, authorization: string): Promise<Actor 
   return actor;
 }
 
+/**
+ * 세션만으로 Actor 를 얻는다. **서버 컴포넌트 전용.**
+ *
+ * 관리자 화면은 `Request` 를 손에 쥐고 있지 않고, 애초에 서비스 토큰으로 들어올 수도 없다.
+ * 라우트 핸들러는 `requireActor()` 를 쓴다.
+ */
+export async function getSessionActor(): Promise<Actor | null> {
+  const actor = await sessionActor();
+  return actor instanceof NextResponse ? null : actor;
+}
+
 async function sessionActor(): Promise<Actor | NextResponse> {
   const session = await auth();
   if (!session?.user?.id) {

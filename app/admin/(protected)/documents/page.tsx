@@ -1,9 +1,10 @@
-import { prisma } from "@/lib/prisma";
 import { DocumentStatus } from "@prisma/client";
 import Link from "next/link";
-import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { getSessionActor } from "@/lib/authz";
+import { listDocuments, type DocumentScopeParam } from "@/lib/api/documents";
 import { DeleteDocumentButton } from "@/components/admin/DeleteDocumentButton";
+import { NewDocumentButton } from "@/components/admin/NewDocumentButton";
 
 export const metadata = { title: "문서 목록 — 관리자" };
 
@@ -19,56 +20,44 @@ const STATUS_COLOR: Record<DocumentStatus, string> = {
   ARCHIVED: "bg-gray-100 text-gray-500",
 };
 
+const NEW_BUTTON_CLASS =
+  "px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-60";
+
 export default async function DocumentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; scope?: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/admin/login");
+  // 라우트 핸들러와 같은 Actor·같은 정책을 쓴다. 세션이 없거나 정지된 계정이면 로그인으로.
+  const actor = await getSessionActor();
+  if (!actor) redirect("/admin/login");
 
-  const { status, q } = await searchParams;
+  const { status, q, scope } = await searchParams;
+  const requestedScope: DocumentScopeParam = scope === "mine" ? "mine" : "all";
 
-  const documents = await prisma.document.findMany({
-    where: {
-      authorId: session.user.id,
-      ...(status && { status: status as DocumentStatus }),
-      ...(q && {
-        OR: [
-          { title: { contains: q, mode: "insensitive" } },
-          { slug: { contains: q, mode: "insensitive" } },
-        ],
-      }),
-    },
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      status: true,
-      publishedAt: true,
-      updatedAt: true,
-      tags: { select: { tag: { select: { name: true } } } },
-    },
-    orderBy: { updatedAt: "desc" },
+  const { items, counts, scope: effectiveScope } = await listDocuments(actor, {
+    scope: requestedScope,
+    status: status && status in DocumentStatus ? (status as DocumentStatus) : null,
+    q,
+    withCounts: true,
   });
 
-  const counts = await prisma.document.groupBy({
-    by: ["status"],
-    where: { authorId: session.user.id },
-    _count: true,
-  });
-  const countMap = Object.fromEntries(counts.map((c) => [c.status, c._count]));
+  // OWNER·ADMIN 만 "전체 / 내 문서" 선택이 의미가 있다. AUTHOR 는 언제나 본인 문서다.
+  const canSeeAll = actor.role !== "AUTHOR";
+  const keep = (extra: Record<string, string | undefined>) => {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries({ status, q, scope: requestedScope, ...extra })) {
+      if (v) sp.set(k, v);
+    }
+    const qs = sp.toString();
+    return qs ? `/admin/documents?${qs}` : "/admin/documents";
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-gray-900">문서 목록</h1>
-        <Link
-          href="/admin/documents/new"
-          className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-        >
-          + 새 문서
-        </Link>
+        <NewDocumentButton className={NEW_BUTTON_CLASS}>+ 새 문서</NewDocumentButton>
       </div>
 
       {/* Filters */}
@@ -76,7 +65,7 @@ export default async function DocumentsPage({
         {[undefined, "DRAFT", "PUBLISHED", "ARCHIVED"].map((s) => (
           <Link
             key={s ?? "all"}
-            href={s ? `/admin/documents?status=${s}` : "/admin/documents"}
+            href={keep({ status: s })}
             className={`text-sm px-3 py-1 rounded-full border transition-colors ${
               status === s || (!status && !s)
                 ? "bg-gray-900 text-white border-gray-900"
@@ -84,15 +73,12 @@ export default async function DocumentsPage({
             }`}
           >
             {s ? STATUS_LABEL[s as DocumentStatus] : "전체"}
-            {s
-              ? countMap[s as DocumentStatus]
-                ? ` (${countMap[s as DocumentStatus]})`
-                : ""
-              : ""}
+            {counts ? ` (${s ? counts[s as DocumentStatus] : counts.ALL})` : ""}
           </Link>
         ))}
         <form method="get" action="/admin/documents" className="ml-auto flex gap-2">
           {status && <input type="hidden" name="status" value={status} />}
+          {requestedScope === "mine" && <input type="hidden" name="scope" value="mine" />}
           <input
             name="q"
             defaultValue={q}
@@ -102,13 +88,31 @@ export default async function DocumentsPage({
         </form>
       </div>
 
+      {canSeeAll && (
+        <div className="flex items-center gap-2 mb-4 text-xs">
+          <Link
+            href={keep({ scope: undefined })}
+            className={effectiveScope === "all" ? "text-gray-900 font-medium" : "text-gray-400 hover:text-gray-700"}
+          >
+            전체 문서
+          </Link>
+          <span className="text-gray-200">·</span>
+          <Link
+            href={keep({ scope: "mine" })}
+            className={effectiveScope === "mine" ? "text-gray-900 font-medium" : "text-gray-400 hover:text-gray-700"}
+          >
+            내 문서
+          </Link>
+        </div>
+      )}
+
       {/* Document Table */}
-      {documents.length === 0 ? (
+      {items.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg mb-2">문서가 없습니다</p>
-          <Link href="/admin/documents/new" className="text-sm text-blue-600 hover:underline">
+          <NewDocumentButton className="text-sm text-blue-600 hover:underline">
             첫 번째 문서를 작성해보세요 →
-          </Link>
+          </NewDocumentButton>
         </div>
       ) : (
         <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -117,13 +121,16 @@ export default async function DocumentsPage({
               <tr>
                 <th className="text-left px-4 py-2.5 font-medium text-gray-600">제목</th>
                 <th className="text-left px-4 py-2.5 font-medium text-gray-600">태그</th>
+                {canSeeAll && (
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600">작성자</th>
+                )}
                 <th className="text-left px-4 py-2.5 font-medium text-gray-600">상태</th>
                 <th className="text-left px-4 py-2.5 font-medium text-gray-600">수정일</th>
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {documents.map((doc) => (
+              {items.map((doc) => (
                 <tr key={doc.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-900">{doc.title}</div>
@@ -131,13 +138,18 @@ export default async function DocumentsPage({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {doc.tags.map(({ tag }) => (
-                        <span key={tag.name} className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
-                          {tag.name}
+                      {doc.tags.map((name) => (
+                        <span key={name} className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
+                          {name}
                         </span>
                       ))}
                     </div>
                   </td>
+                  {canSeeAll && (
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {doc.author.name ?? doc.author.email}
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_COLOR[doc.status]}`}>
                       {STATUS_LABEL[doc.status]}

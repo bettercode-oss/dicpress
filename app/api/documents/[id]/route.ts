@@ -92,6 +92,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (becamePublished || becameUnpublished || slugChanged) {
     revalidatePath(`/${document.slug}`);
     revalidatePath("/");
+    // 사이트맵은 revalidate=3600 이라 손대지 않으면 한 시간 낡은 채로 남는다.
+    revalidatePath("/sitemap.xml");
     if (slugChanged) revalidatePath(`/${existing.slug}`);
   }
 
@@ -110,6 +112,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 
   revalidatePath(`/${doc.slug}`);
   revalidatePath("/");
+  revalidatePath("/sitemap.xml");
 
   return NextResponse.json({ success: true });
 }
