@@ -2,7 +2,7 @@ import { DocumentStatus } from "@prisma/client";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionActor } from "@/lib/authz";
-import { listDocuments, type DocumentScopeParam } from "@/lib/api/documents";
+import { listDocuments, parseListParams, type DocumentScopeParam } from "@/lib/api/documents";
 import { DeleteDocumentButton } from "@/components/admin/DeleteDocumentButton";
 import { NewDocumentButton } from "@/components/admin/NewDocumentButton";
 
@@ -33,12 +33,21 @@ export default async function DocumentsPage({
   if (!actor) redirect("/admin/login");
 
   const { status, q, scope } = await searchParams;
-  const requestedScope: DocumentScopeParam = scope === "mine" ? "mine" : "all";
 
+  // 파싱을 API 라우트와 공유한다. 예전에는 여기 같은 로직이 한 벌 더 있었고,
+  // 그 사본도 모르는 값을 조용히 "필터 없음" 으로 떨어뜨리고 있었다(#79).
+  const parsed = parseListParams(
+    new URLSearchParams(
+      Object.entries({ status, q, scope }).filter(([, v]) => v != null) as [string, string][],
+    ),
+  );
+  // 화면에서는 400 을 띄우는 대신 깨끗한 주소로 되돌린다. 주소창을 손댄 결과일 뿐이고,
+  // 필터가 안 걸린 목록을 걸린 것처럼 보여주지만 않으면 된다.
+  if ("paramError" in parsed) redirect("/admin/documents");
+
+  const requestedScope: DocumentScopeParam = parsed.scope ?? "all";
   const { items, counts, scope: effectiveScope } = await listDocuments(actor, {
-    scope: requestedScope,
-    status: status && status in DocumentStatus ? (status as DocumentStatus) : null,
-    q,
+    ...parsed,
     withCounts: true,
   });
 

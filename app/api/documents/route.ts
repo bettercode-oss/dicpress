@@ -11,9 +11,14 @@ export async function GET(req: NextRequest) {
   if (actor instanceof NextResponse) return actor;
 
   const { searchParams } = new URL(req.url);
-  const result = await listDocuments(actor, parseListParams(searchParams));
+  const params = parseListParams(searchParams);
+  // 모르는 값은 조용히 무시하지 않는다. 그러면 필터를 걸었다고 믿은 쪽이
+  // 필터 없는 결과를 받는다(#79). 에러 형태는 다른 400 과 같은 { error } 다.
+  if ("paramError" in params) {
+    return NextResponse.json({ error: params.paramError }, { status: 400 });
+  }
 
-  return NextResponse.json(result);
+  return NextResponse.json(await listDocuments(actor, params));
 }
 
 export async function POST(req: NextRequest) {
