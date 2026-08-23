@@ -27,7 +27,8 @@ app/
     documents/       — 관리자 CRUD API
 
 lib/
-  authz.ts           — requireSession(roles?): API 라우트 공통 인증·역할 검사
+  authz.ts           — requireActor(req, roles?): 세션·서비스 토큰 공통 인증
+  api/documents.ts   — listDocuments(): 라우트와 관리자 화면이 공유하는 문서 조회
   document-access.ts — 문서 접근 정책 (canAccessDocument / requireDocumentAccess / documentScope)
   entry-summary.ts   — getEntrySummary(), getEntry(), EntryData 타입
   markdown.ts        — markdownToReact(): rehype-react로 RSC 트리 반환
@@ -48,6 +49,7 @@ constants/
 
 docs/
   integration.md     — 외부 사이트 연동 가이드 (API 명세 + DicTooltip 패턴)
+  admin-api.md       — 관리자 콘솔(admin.bizos.kr) 연동 계약
   decisions/         — ADR 문서
 ```
 
@@ -77,18 +79,31 @@ docs/
 응답: `{ summary, title, content, contentHtml }` (없으면 전부 null).
 연동 가이드: `docs/integration.md` 참고.
 
-### 진행 중 — 관리자 콘솔 분리 (Epic #68)
+### 진행 중 — 관리자 콘솔 연동 (Epic #68)
 
-관리자 기능은 `admin.bizos.kr`의 별도 앱(`bettercode-oss/admin-console`)으로 이전 중이다.
-**관리자 쪽 코드를 새로 짤 때는 이 방향을 전제로 한다.**
+관리자 기능을 `admin.bizos.kr` 통합 콘솔(**저장소 `ahnyounghoe/admin`**, 이미 배포되어 도는
+앱, 포트 3004)에서도 쓸 수 있게 하는 중이다. **자체 `/admin` UI 는 당분간 그대로 둔다** —
+두 화면을 나란히 띄워 대조하는 기간을 거친 뒤에 닫는다.
 
-- 브라우저는 admin.bizos.kr하고만 통신하고, 그 서버가 루프백(`127.0.0.1:3001`)으로 dicpress를 호출한다(BFF).
-  따라서 **관리자 API에 CORS를 추가할 일은 없다.**
-- 서비스 간 인증은 60초짜리 actor JWT. dicpress가 매 요청 DB에서 role/status를 재확인한다.
-  세션 쿠키를 서브도메인끼리 공유하는 방식은 채택하지 않았다(`__Host-` CSRF 쿠키 제약, 동명 쿠키 중복).
-- **문서 쓰기는 계속 dicpress 안에서 일어나야 한다.** `revalidatePath`는 호출한 프로세스의 캐시만
-  무효화하므로, 콘솔이 Prisma로 직접 쓰면 공개 페이지가 최대 10분(`revalidate = 600`)간 낡은 채로 남는다.
-- 관리자 화면 로직을 페이지 서버 컴포넌트의 직접 Prisma 조회로 새로 넣지 말 것 — `/api/admin/*`로 낸다.
+- 콘솔은 **자체 DB(`admin_bizos`)와 자체 사용자·자체 Passkey** 를 가진다.
+  dicpress User 와 콘솔 User 는 **다른 사람 목록**이다.
+- 서비스 간 인증은 **고정 서비스 토큰**(`ADMIN_SERVICE_TOKEN`) + `X-Actor-Email` 헤더다.
+  콘솔이 kbo-name-game 에 쓰는 방식과 같다. dicpress 는 그 이메일로 자기 User 를 찾아
+  **매 요청 DB 에서 role/status 를 재확인**한다.
+- 브라우저는 admin.bizos.kr 하고만 통신하고 그 서버가 루프백(`127.0.0.1:3001`)으로
+  dicpress 를 호출한다(BFF). 따라서 **관리자 API 에 CORS 를 추가할 일은 없다.**
+- **문서 쓰기는 계속 dicpress 안에서 일어나야 한다.** `revalidatePath` 는 호출한 프로세스의
+  캐시만 무효화하므로, 콘솔이 Prisma 로 직접 쓰면 공개 목록(60초)·상세(600초)·
+  사이트맵(3600초)이 그만큼 낡은 채로 남는다.
+- 계약 문서는 `docs/admin-api.md`, 판단 근거는 `docs/decisions/002-admin-console-service-token.md`.
+
+> ⚠️ **폐기된 설계에 주의.** 이슈 #63·#65·#68 본문은 콘솔이 아직 없던 시점에 쓰였다.
+> 거기 적힌 **60초 actor JWT**, `/api/internal/session/exchange`, 저장소명
+> `bettercode-oss/admin-console`, **WebAuthn RP ID 를 `bizos.kr` 로 전환(#65)** 은
+> 모두 채택하지 않았다. ADR 002 가 현재 결정이다.
+
+**WebAuthn RP ID 는 `dic.bizos.kr` 그대로 둔다.** 콘솔은 자체 RP ID 로 이미 로그인이
+동작하므로 넓힐 이유가 없고, 넓히면 기존 Passkey 가 전부 무효화되어 전원 잠금 위험만 생긴다.
 
 ### summary 추출 전략
 `Document.summary` 필드 우선 → 없으면 `contentMd`에서 자동 추출.
@@ -107,12 +122,15 @@ PM2 `env_production`에 `AUTH_TRUST_HOST: "true"` 설정 필수 (역방향 프�
 
 **⚠️ 미들웨어는 API를 보호하지 않는다.** `proxy.ts`(Next 16에서 `middleware.ts`가 개명된 것)의
 matcher가 `api`를 제외하므로, **모든 API 라우트는 스스로 인증을 검사해야 한다.**
-새 라우트를 만들 때 `lib/authz.ts`의 `requireSession()`을 쓴다.
+새 라우트를 만들 때 `lib/authz.ts`의 `requireActor()`를 쓴다.
 
 ```ts
-const actor = await requireSession(["OWNER", "ADMIN"]); // roles 생략 시 로그인만 확인
+const actor = await requireActor(req, ["OWNER", "ADMIN"]); // roles 생략 시 로그인만 확인
 if (actor instanceof NextResponse) return actor;
 ```
+
+세션과 서비스 토큰 **양쪽**을 받고, 어느 경로든 매 요청 DB에서 `role`·`status`를 다시 읽는다.
+서버 컴포넌트에서는 `Request`가 없으므로 `getSessionActor()`를 쓴다.
 
 문서를 다루는 라우트는 `lib/document-access.ts`도 함께 쓴다 —
 **OWNER/ADMIN은 전체 문서, AUTHOR는 본인 문서만**이 유일한 정책 지점이다.
@@ -199,6 +217,9 @@ nginx -t && systemctl reload nginx
 **서버에 아직 반영되지 않은 항목** (반영했으면 지운다):
 - `client_max_body_size 10m` — 기본값 1MB라 앱이 허용하는 5MB 이미지가 413으로 잘린다.
   템플릿에는 #61에서 들어갔지만 위 이유로 서버에는 없다
+- `proxy_set_header Authorization "";` — **보안상 중요.** 이게 없으면 `ADMIN_SERVICE_TOKEN`
+  경로가 공개 인터넷에 열린다. 이 앱은 브라우저에서 Authorization을 쓰지 않으므로
+  비워도 잃는 것이 없다. 템플릿에는 #70에서 들어갔다
 
 ### ⚠️ 환경변수를 손으로 바꿀 때 (standalone 빌드의 함정)
 
@@ -236,20 +257,21 @@ pm2 delete dicpress && pm2 start ecosystem.config.js --env production && pm2 sav
 | M1 - dogfooding | 완료 (#32, #37 종료) |
 | M2 - 외부 사이트 적용 | 진행 중 (open 3) |
 | M3 - 권한 체계와 Passkey 적용 | 완료 (closed 12) |
-| M4 - 관리자 콘솔 분리 | 진행 중 (Epic #68) |
+| M4 - 관리자 콘솔 연동 | 진행 중 (Epic #68, 방식은 ADR 002로 변경) |
 
 ### M2 오픈 이슈
 - **#1** Passkey 사용을 낯설어 하는 사용자를 위한 도움말 제공
 - **#10** ordera.bettercode.kr/signin 적용 (ordera 프로젝트 필요)
 - **#11** ordera.libaitian.kr/signin 적용 (ordera 프로젝트 필요)
 
-### M4 오픈 이슈 — 순서대로 진행할 것
-- **#68** Epic: 관리자 기능을 admin.bizos.kr 통합 콘솔로 분리
-- **#63** Phase 1: Actor 인증 계층 + 신규 Admin API
-- **#64** Phase 2: admin.bizos.kr 인프라 스캐폴딩
-- **#65** Phase 3: WebAuthn RP ID 를 `bizos.kr` 로 전환 ⚠️ 잠금 위험. #66 보다 **먼저**
-- **#66** Phase 4: 관리자 콘솔 기능 구현 (두 UI 병행 운영)
-- **#67** Phase 5: 컷오버 — dicpress 관리자 표면 닫기
+### M4 오픈 이슈
+- **#70** 콘솔이 쓸 서비스 토큰 인증 — 자체 UI와 병행 (**현재 작업**)
+- **#68** Epic — 본문의 actor JWT·저장소명 전제가 낡았다. ADR 002가 현재 결정이다
+- **#63** Phase 1 — #70이 대체한다
+- **#64** Phase 2 — 콘솔은 이미 배포됐다(2026-08-22). 사실상 완료
+- **#65** Phase 3 — **하지 않는다.** 근거는 ADR 002
+- **#66** Phase 4 — 콘솔 쪽 화면 이식. 저장소 `ahnyounghoe/admin#8`
+- **#67** Phase 5: 컷오버 — dicpress 관리자 표면 닫기. 병행 운영 검증 이후
 
 ### 마일스톤 밖 오픈 이슈
 - **#51** 등록 링크 재발송 기능 (#65 의 CLI 초대 스크립트와 겹침)
@@ -268,4 +290,6 @@ pm2 delete dicpress && pm2 start ecosystem.config.js --env production && pm2 sav
 | `AUTH_TRUST_HOST` | NextAuth 프록시 신뢰 | PM2 env_production |
 | `RESEND_API_KEY` | Resend 이메일 발송 | `.env` (서버에도 필요) |
 | `RESEND_FROM` | 발신 주소 — 인증된 도메인이어야 함 | `.env` (서버에도 필요) |
+| `ADMIN_SERVICE_TOKEN` | 관리자 콘솔의 서버 간 호출 인증. **이 토큰은 사실상 OWNER 권한이다** | `.env` (서버에도 필요) |
+| `ADMIN_SERVICE_TOKEN_LOOPBACK_ONLY` | 토큰 경로를 루프백 전용으로 제한 (기본 동작, `"false"`로 해제) | `.env` (선택) |
 | `NEXT_PUBLIC_GIT_SHA` 외 3개 | 빌드 버전 표시 | CI 빌드 시 주입 |
