@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/auth";
+import { requireActor } from "@/lib/authz";
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "인증 필요" }, { status: 401 });
-  if (!["OWNER", "ADMIN"].includes(session.user.role)) {
-    return NextResponse.json({ error: "권한 없음" }, { status: 403 });
-  }
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const actor = await requireActor(req, ["OWNER", "ADMIN"]);
+  if (actor instanceof NextResponse) return actor;
 
   const { id } = await params;
   const request = await prisma.accountRequest.findUnique({ where: { id } });

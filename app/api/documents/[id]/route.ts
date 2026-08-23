@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { markdownToHtml } from "@/lib/markdown";
-import { requireSession } from "@/lib/authz";
+import { requireActor } from "@/lib/authz";
 import { canAccessDocument, forbidden, requireDocumentAccess } from "@/lib/document-access";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_req: NextRequest, { params }: Params) {
-  const actor = await requireSession();
+export async function GET(req: NextRequest, { params }: Params) {
+  const actor = await requireActor(req);
   if (actor instanceof NextResponse) return actor;
 
   const { id } = await params;
@@ -28,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const actor = await requireSession();
+  const actor = await requireActor(req);
   if (actor instanceof NextResponse) return actor;
 
   const { id } = await params;
@@ -98,8 +98,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return NextResponse.json(document);
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
-  const actor = await requireSession();
+export async function DELETE(req: NextRequest, { params }: Params) {
+  const actor = await requireActor(req);
   if (actor instanceof NextResponse) return actor;
 
   const { id } = await params;

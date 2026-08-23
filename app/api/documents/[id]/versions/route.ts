@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/authz";
+import { requireActor } from "@/lib/authz";
 import { requireDocumentAccess } from "@/lib/document-access";
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const actor = await requireSession();
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const actor = await requireActor(req);
   if (actor instanceof NextResponse) return actor;
 
   const { id } = await params;

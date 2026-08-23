@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/authz";
+import { requireActor } from "@/lib/authz";
 import { requireDocumentAccess } from "@/lib/document-access";
 
 export async function POST(req: NextRequest) {
-  const actor = await requireSession();
+  const actor = await requireActor(req);
   if (actor instanceof NextResponse) return actor;
 
   const formData = await req.formData();
