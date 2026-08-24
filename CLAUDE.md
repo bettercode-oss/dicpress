@@ -257,11 +257,40 @@ nginx -t && systemctl reload nginx
 `nginx -t` 없이 reload하지 말 것 — 문법 오류면 nginx가 뜨지 않아 사이트 전체가 죽는다.
 
 **서버에 아직 반영되지 않은 항목** (반영했으면 지운다):
-- `client_max_body_size 10m` — 기본값 1MB라 앱이 허용하는 5MB 이미지가 413으로 잘린다.
-  템플릿에는 #61에서 들어갔지만 위 이유로 서버에는 없다
-- `proxy_set_header Authorization "";` — **보안상 중요.** 이게 없으면 `ADMIN_SERVICE_TOKEN`
-  경로가 공개 인터넷에 열린다. 이 앱은 브라우저에서 Authorization을 쓰지 않으므로
-  비워도 잃는 것이 없다. 템플릿에는 #70에서 들어갔다
+- `location /uploads/` 의 `alias` 를 `$UPLOAD_DIR/` 로 — 아래 「업로드 파일은 배포 밖에 둔다」
+
+2026-08-25 확인: `client_max_body_size 10m`(#61)과 `proxy_set_header Authorization "";`(#70)은
+서버에 **이미 들어가 있다.** 이 목록에 남아 있었으나 사실이 아니어서 지웠다.
+
+### ⚠️ 업로드 파일은 배포 밖에 둔다 (#90)
+
+바로 아래 「standalone 빌드의 함정」과 **뿌리가 같다.** `server.js` 가
+`process.chdir(__dirname)` 을 하므로 운영에서 `process.cwd()` 는 저장소 루트가 아니라
+`.next/standalone` 이다. 그 사실이 환경변수 쪽으로만 적혀 있어서, 업로드가 같은 이유로
+깨져 있는 것을 오래 아무도 몰랐다.
+
+`app/api/upload/route.ts` 는 예전에 `path.join(process.cwd(), "public", "uploads")` 에 썼다.
+운영에서 그 자리는 `.next/standalone/public/uploads/` 였고 nginx 는
+`${DEPLOY_PATH}/public/uploads/` 를 보고 있었다. **업로드는 201, 그 URL 은 404.**
+게다가 그 자리는 배포마다 사라진다 — `npm run build` 가 standalone 출력을 새로 쓰고
+`deploy.yml` 이 `cp -r public .next/standalone/public` 으로 다시 만든다.
+
+그래서 저장 위치를 **빌드 산출물 밖의 절대 경로**로 뺐다. 세 곳이 같은 값이어야 한다.
+
+| 곳 | 무엇 |
+|---|---|
+| 서버 `.env.production` | `UPLOAD_DIR=/var/lib/dicpress/uploads` (+ standalone 사본 갱신, 아래 절) |
+| 서버 `/etc/nginx/sites-available/dic.bizos.kr` | `location /uploads/` 의 `alias` |
+| 저장소 `deploy/project.conf` · `nginx.conf.template` | 다음에 세울 서버를 위해 |
+
+- **`DEPLOY_PATH` 아래에 두지 않는다.** 배포가 `git reset --hard` 하고 `.next` 를 새로
+  빌드하므로 그 안이면 사용자가 올린 파일이 배포마다 사라진다
+- **상대 경로로 두지 않는다.** cwd 함정으로 그대로 돌아간다. 앱이 기동 로그에 경고를 남긴다
+- **공개 URL 은 그대로 `/uploads/…` 다.** 저장 위치가 바뀌어도 `contentMd` 에 박힌 값은
+  건드릴 필요가 없다 — 둘을 잇는 것은 nginx 의 `alias` 다
+
+로컬은 설정하지 않아도 된다. `next dev` 의 cwd 가 저장소 루트고 Next 가 `public/` 을
+직접 서빙하므로 기본값(`public/uploads`)으로 그대로 돈다.
 
 ### ⚠️ 환경변수를 손으로 바꿀 때 (standalone 빌드의 함정)
 

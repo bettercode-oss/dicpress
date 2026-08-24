@@ -9,5 +9,11 @@
 APP_NAME="your-app-name"        # Nginx 설정 파일 이름으로 쓰입니다. 도메인 앞부분과 일치시키는 것을 권장합니다 (예: mysite)
 DOMAIN="your-domain.example.com"
 DEPLOY_PATH="/var/www/your-domain.example.com"
+
+# 업로드 파일을 둘 절대 경로. **DEPLOY_PATH 아래에 두지 마세요** (#90).
+# 배포는 저장소를 git reset --hard 하고 .next 를 새로 빌드하므로, 그 안에 있으면
+# 사용자가 올린 파일이 배포마다 사라집니다. 앱의 UPLOAD_DIR 환경변수와 같은 값이어야
+# 하고 nginx 설정에도 이 값이 들어갑니다.
+UPLOAD_DIR="/var/lib/your-app-name/uploads"
 PORT=3001
 REPO_URL="https://github.com/YOUR_ORG/YOUR_REPO.git"
