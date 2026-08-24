@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { markdownToHtml } from "@/lib/markdown";
 import { requireActor } from "@/lib/authz";
@@ -38,7 +39,20 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const body = await req.json();
   const { title, slug, summary, contentMd, status, thumbnailUrl, tags } = body;
 
-  const contentHtml = contentMd ? await markdownToHtml(contentMd) : undefined;
+  // 보내지 않은 것(undefined)과 빈 값을 보낸 것은 다르다. 빈 값을 조용히 무시하면
+  // 200 을 받은 쪽이 반영됐다고 믿는다(#88) — 목록 쿼리에서 정리한 것과 같은 기준(#79).
+  // 제목과 slug 는 비울 수 없는 값이라 거절한다. 빈 제목은 목록에서 빈 줄이 되고
+  // 빈 slug 는 공개 URL 을 깨뜨린다.
+  const isBlank = (v: unknown) => v !== undefined && (typeof v !== "string" || v.trim() === "");
+  if (isBlank(title)) {
+    return NextResponse.json({ error: "제목은 비울 수 없습니다" }, { status: 400 });
+  }
+  if (isBlank(slug)) {
+    return NextResponse.json({ error: "slug 는 비울 수 없습니다" }, { status: 400 });
+  }
+
+  // contentMd 는 반대다 — 본문을 비우는 것은 정상적인 편집이라 "" 를 그대로 저장한다.
+  const contentHtml = contentMd !== undefined ? await markdownToHtml(contentMd) : undefined;
 
   const latestVersion = await prisma.documentVersion.findFirst({
     where: { documentId: id },
@@ -46,7 +60,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   });
   const nextVersionNo = (latestVersion?.versionNo ?? 0) + 1;
 
-  const document = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await tx.documentVersion.create({
       data: {
         documentId: id,
@@ -66,8 +80,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         ...(title && { title }),
         ...(slug && { slug }),
         ...(summary !== undefined && { summary }),
-        ...(contentMd && { contentMd }),
-        ...(contentHtml && { contentHtml }),
+        ...(contentMd !== undefined && { contentMd }),
+        ...(contentHtml !== undefined && { contentHtml }),
         ...(status && { status }),
         ...(thumbnailUrl !== undefined && { thumbnailUrl }),
         ...(status === "PUBLISHED" && !existing.publishedAt && { publishedAt: new Date() }),
@@ -82,7 +96,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         }),
       },
     });
+  }).catch((e: unknown) => {
+    // slug 는 유니크다. POST 와 같은 409 를 돌려준다 — 500 은 { error } 본문이 없어
+    // 콘솔이 사유를 화면에 실을 수 없고 "알 수 없는 오류" 로 뜬다(#88).
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return NextResponse.json({ error: "이미 사용 중인 slug 입니다" }, { status: 409 });
+    }
+    throw e;
   });
+  if (result instanceof NextResponse) return result;
+  const document = result;
 
   // 공개 페이지 캐시 갱신.
   //
