@@ -55,11 +55,17 @@ cp -r public .next/standalone/public
 cp -r .next/static .next/standalone/.next/static
 
 echo "▶ 업로드 디렉토리 및 로그 디렉토리 생성..."
-mkdir -p public/uploads logs
+# 업로드는 DEPLOY_PATH 밖에 둔다 — 배포가 저장소를 git reset --hard 하고 .next 를
+# 새로 빌드하므로 그 안에 있으면 사용자가 올린 파일이 배포마다 사라진다 (#90).
+# nginx(www-data)가 읽어야 하므로 실행 권한이 열려 있어야 한다.
+sudo mkdir -p "$UPLOAD_DIR"
+sudo chown "$USER:$USER" "$UPLOAD_DIR"
+sudo chmod 755 "$UPLOAD_DIR"
+mkdir -p logs
 
 echo "▶ Nginx 설정 생성..."
-export APP_NAME DOMAIN DEPLOY_PATH PORT
-envsubst '${APP_NAME} ${DOMAIN} ${DEPLOY_PATH} ${PORT}' \
+export APP_NAME DOMAIN DEPLOY_PATH PORT UPLOAD_DIR
+envsubst '${APP_NAME} ${DOMAIN} ${DEPLOY_PATH} ${PORT} ${UPLOAD_DIR}' \
     < "$DEPLOY_PATH/deploy/nginx.conf.template" \
     | sudo tee "/etc/nginx/sites-available/$DOMAIN" > /dev/null
 sudo ln -sf "/etc/nginx/sites-available/$DOMAIN" "/etc/nginx/sites-enabled/$DOMAIN"
