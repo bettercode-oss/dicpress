@@ -257,7 +257,11 @@ nginx -t && systemctl reload nginx
 `nginx -t` 없이 reload하지 말 것 — 문법 오류면 nginx가 뜨지 않아 사이트 전체가 죽는다.
 
 **서버에 아직 반영되지 않은 항목** (반영했으면 지운다):
-- `location /uploads/` 의 `alias` 를 `$UPLOAD_DIR/` 로 — 아래 「업로드 파일은 배포 밖에 둔다」
+- `.env.production` 의 `UPLOAD_DIR` (+ `.next/standalone/.env.production` 사본) —
+  비어 있으면 앱이 `<cwd>/public/uploads` 폴백으로 돌아간다. **코드 배포만으로는 안 끝난다**
+- `location /uploads/` 의 `alias` 를 `$UPLOAD_DIR/` 로
+
+둘은 한 짝이고 절차·검증은 **#94** 에 있다. 배경은 아래 「업로드 파일은 배포 밖에 둔다」.
 
 2026-08-25 확인: `client_max_body_size 10m`(#61)과 `proxy_set_header Authorization "";`(#70)은
 서버에 **이미 들어가 있다.** 이 목록에 남아 있었으나 사실이 아니어서 지웠다.
