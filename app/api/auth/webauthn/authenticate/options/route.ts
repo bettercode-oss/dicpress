@@ -3,9 +3,11 @@ import { generateAuthenticationOptions } from "@simplewebauthn/server";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import { prisma } from "@/lib/prisma";
 import { RP_ID, saveChallenge } from "@/lib/webauthn";
+import { normalizeEmail } from "@/lib/email-address";
 
 export async function POST(req: NextRequest) {
-  const { email } = await req.json();
+  // 로그인 폼에 대문자가 섞여 들어와도 같은 계정을 찾아야 한다 (#105).
+  const email = normalizeEmail((await req.json()).email);
   if (!email) return NextResponse.json({ error: "email 필수" }, { status: 400 });
 
   const user = await prisma.user.findUnique({
