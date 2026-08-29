@@ -256,7 +256,13 @@ nginx -t && systemctl reload nginx
 
 `nginx -t` 없이 reload하지 말 것 — 문법 오류면 nginx가 뜨지 않아 사이트 전체가 죽는다.
 
-**서버에 아직 반영되지 않은 항목** (반영했으면 지운다): **현재 없음.**
+**서버에 아직 반영되지 않은 항목** (반영했으면 지운다):
+
+- **인증 경로 속도 제한** (#104) — 세 파일이 함께 가야 한다.
+  `deploy/nginx-rate-limit.conf` → `/etc/nginx/conf.d/dicpress-rate-limit.conf`,
+  `deploy/nginx-proxy-headers.conf` → `/etc/nginx/snippets/dicpress-proxy.conf`,
+  그리고 사이트 파일에 `location ^~ /api/auth/webauthn/` · `location = /api/admin/signup`
+  두 블록. **하나라도 빠지면 `nginx -t` 가 실패한다** — 조용히 어긋나지는 않는다
 
 - 2026-08-26 (#94): `UPLOAD_DIR` 은 `.env.production` 과 standalone 사본 **양쪽에** 절대 경로로
   들어가 있고, nginx `alias` 도 같은 값을 가리킨다. 루프백 업로드 왕복으로 확인했다 —
