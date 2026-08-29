@@ -63,6 +63,14 @@ sudo chown "$USER:$USER" "$UPLOAD_DIR"
 sudo chmod 755 "$UPLOAD_DIR"
 mkdir -p logs
 
+echo "▶ Nginx 공통 조각 설치..."
+# 프록시 헤더는 파일 하나로 두고 모든 location 이 include 한다 — proxy_set_header 가
+# 상속이 아니라 치환이라, 블록마다 복사하면 한 곳이 조용히 뒤처진다 (#104).
+sudo mkdir -p /etc/nginx/snippets
+sudo cp "$DEPLOY_PATH/deploy/nginx-proxy-headers.conf" /etc/nginx/snippets/dicpress-proxy.conf
+# 속도 제한 zone 은 http 블록 안이어야 한다. conf.d 는 nginx.conf 가 http 안에서 include 한다.
+sudo cp "$DEPLOY_PATH/deploy/nginx-rate-limit.conf" /etc/nginx/conf.d/dicpress-rate-limit.conf
+
 echo "▶ Nginx 설정 생성..."
 export APP_NAME DOMAIN DEPLOY_PATH PORT UPLOAD_DIR
 envsubst '${APP_NAME} ${DOMAIN} ${DEPLOY_PATH} ${PORT} ${UPLOAD_DIR}' \

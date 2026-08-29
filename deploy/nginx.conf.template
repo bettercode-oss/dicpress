@@ -55,36 +55,38 @@ server {
     #         proxy_set_header X-Something foo;   # ← 이 한 줄이 아래 전부를 무효화한다
     #     }
     #
-    # 새 프록시 블록을 만들면 아래 proxy_set_header 목록을 **통째로 복사해 넣을 것.**
-    # 지금은 프록시하는 블록이 여기 하나뿐이고(위 두 블록은 alias 라 프록시하지 않는다),
-    # server 레벨에는 proxy_set_header 가 없어서 잃을 상속도 없다.
+    # 그래서 목록을 파일 하나로 뺐다 — deploy/nginx-proxy-headers.conf 가
+    # /etc/nginx/snippets/dicpress-proxy.conf 로 설치되고, **프록시하는 모든 블록이
+    # 그것을 include 한다.** 새 블록을 만들 때 복사하지 말고 include 를 쓸 것.
+    # 파일이 없으면 nginx -t 가 크게 실패하므로 조용히 어긋나지 않는다.
     #
     # 살아 있는지는 scripts/verify-auth-boundary.sh 가 배포마다 확인한다.
 
+    # ── 인증 관련 경로: 속도 제한을 건다 (#104) ──────────────────────────────
+    #
+    # 이 경로들은 로그인하지 않고도 이메일 하나로 계정 존재 여부를 알려 준다.
+    # 표면을 없애는 대신 **대량 조회만 비싸게** 만든다. 근거와 숫자는
+    # deploy/nginx-rate-limit.conf 에 있다.
+    #
+    # ⚠️ 아래 두 블록은 `location /` 보다 **더 긴 접두사**라 nginx 가 이쪽을 먼저 고른다.
+    #    파일 안의 순서와는 무관하다(최장 접두사 우선).
+
+    location ^~ /api/auth/webauthn/ {
+        limit_req zone=dic_auth burst=20 nodelay;
+        proxy_pass http://127.0.0.1:${PORT};
+        include    /etc/nginx/snippets/dicpress-proxy.conf;
+    }
+
+    location = /api/admin/signup {
+        limit_req zone=dic_auth burst=20 nodelay;
+        proxy_pass http://127.0.0.1:${PORT};
+        include    /etc/nginx/snippets/dicpress-proxy.conf;
+    }
+
     # 나머지 요청은 Next.js standalone 서버로 프록시
     location / {
-        proxy_pass         http://127.0.0.1:${PORT};
-
-        # 클라이언트가 보낸 Authorization 을 버린다.
-        #
-        # 이 앱은 브라우저에서 Authorization 헤더를 한 번도 쓰지 않는다 — 관리자 UI 는
-        # 전부 세션 쿠키다. 반면 서버 간 호출(admin.bizos.kr 콘솔)은 이 헤더에
-        # ADMIN_SERVICE_TOKEN 을 실어 보내고, 그 토큰을 쥔 쪽은 X-Actor-Email 로
-        # 아무나 사칭할 수 있다.
-        #
-        # 여기서 헤더를 비우면 토큰 경로가 공개 인터넷에서 물리적으로 도달 불가능해지고,
-        # 루프백(127.0.0.1:${PORT})으로 들어오는 콘솔에서만 살아 있다.
-        # 지우면 토큰이 인터넷에 노출된다.
-        proxy_set_header   Authorization     "";
-        proxy_http_version 1.1;
-        proxy_set_header   Upgrade           $http_upgrade;
-        proxy_set_header   Connection        'upgrade';
-        proxy_set_header   Host              $host;
-        proxy_set_header   X-Real-IP         $remote_addr;
-        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        proxy_read_timeout 60s;
+        proxy_pass http://127.0.0.1:${PORT};
+        include    /etc/nginx/snippets/dicpress-proxy.conf;
     }
 
     # 로그
