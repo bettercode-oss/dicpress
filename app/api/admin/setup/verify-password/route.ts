@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { normalizeEmail } from "@/lib/email-address";
 
 export async function POST(req: NextRequest) {
-  const { email, password } = await req.json();
+  const body = await req.json();
+  const password = body.password;
+  const email = normalizeEmail(body.email);  // #105
   if (!email || !password) {
     return NextResponse.json({ error: "email, password 필수" }, { status: 400 });
   }

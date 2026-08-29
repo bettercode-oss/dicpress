@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { normalizeEmail } from "@/lib/email-address";
 
 export async function POST(req: NextRequest) {
-  const { email, setupToken } = await req.json();
+  const body = await req.json();
+  const setupToken = body.setupToken;
+  const email = normalizeEmail(body.email);  // #105
   if (!email || !setupToken) {
     return NextResponse.json({ error: "email, setupToken 필수" }, { status: 400 });
   }

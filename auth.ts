@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
 import { consumeSessionToken } from "@/lib/webauthn";
+import { normalizeEmail } from "@/lib/email-address";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -19,7 +20,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!credentials?.email || !credentials?.password) return null;
 
         const user = await prisma.user.findUnique({
-          where: { email: String(credentials.email) },
+          // 입력 이메일도 정규화한다. 저장이 소문자이므로 여기서 맞추지 않으면
+          // 대문자를 섞어 넣은 사람이 "비밀번호가 틀렸다" 로 오해한다 (#105).
+          where: { email: normalizeEmail(credentials.email) },
         });
         if (!user || !user.password) return null;
 

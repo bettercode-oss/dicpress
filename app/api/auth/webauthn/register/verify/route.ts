@@ -4,11 +4,14 @@ import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import type { RegistrationResponseJSON } from "@simplewebauthn/types";
 import { prisma } from "@/lib/prisma";
 import { RP_ID, ORIGIN, consumeChallenge, verifyRegistrationToken } from "@/lib/webauthn";
+import { normalizeEmail } from "@/lib/email-address";
 
 export async function POST(req: NextRequest) {
-  const { email, response, token }: {
+  const body: {
     email: string; response: RegistrationResponseJSON; token?: string;
   } = await req.json();
+  const { response, token } = body;
+  const email = normalizeEmail(body.email);  // #105
   if (!email || !response) return NextResponse.json({ error: "email, response 필수" }, { status: 400 });
 
   if (!token || !(await verifyRegistrationToken(String(token), email))) {

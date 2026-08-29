@@ -4,9 +4,13 @@ import { isoBase64URL } from "@simplewebauthn/server/helpers";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/types";
 import { prisma } from "@/lib/prisma";
 import { RP_ID, ORIGIN, consumeChallenge, createSessionToken } from "@/lib/webauthn";
+import { normalizeEmail } from "@/lib/email-address";
 
 export async function POST(req: NextRequest) {
-  const { email, response }: { email: string; response: AuthenticationResponseJSON } = await req.json();
+  const body: { email: string; response: AuthenticationResponseJSON } = await req.json();
+  const response = body.response;
+  // options 단계에서 정규화된 값으로 챌린지를 저장했으므로 여기서도 같게 맞춘다 (#105).
+  const email = normalizeEmail(body.email);
   if (!email || !response) return NextResponse.json({ error: "email, response 필수" }, { status: 400 });
 
   const expectedChallenge = await consumeChallenge(email, "authentication");

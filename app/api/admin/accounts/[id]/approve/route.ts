@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/authz";
 import { sendPasskeyRegistrationEmail } from "@/lib/email";
 import { maskEmail } from "@/lib/mask";
+import { normalizeEmail } from "@/lib/email-address";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const actor = await requireActor(req, ["OWNER", "ADMIN"]);
@@ -16,12 +17,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "이미 처리된 신청입니다" }, { status: 409 });
   }
 
+  // 신청 행이 정규화 이전(#105)에 만들어졌을 수 있으므로 여기서 한 번 더 통과시킨다.
+  // 이 값이 곧 로그인·콘솔 조회의 열쇠가 된다 — 여기서 섞이면 되돌릴 방법이 없다.
+  const email = normalizeEmail(request.email);
+
   // User 생성 (없으면)
   const user = await prisma.user.upsert({
-    where: { email: request.email },
+    where: { email },
     update: {},
     create: {
-      email: request.email,
+      email,
       name: request.name,
       role: "AUTHOR",
       status: "PENDING",
@@ -33,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await prisma.webAuthnChallenge.create({
     data: {
       challenge: token,
-      email: request.email,
+      email,
       type: "registration_invite",
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     },

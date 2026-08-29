@@ -3,6 +3,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { maskEmail } from "@/lib/mask";
+import { normalizeEmail, MAX_EMAIL_LENGTH } from "@/lib/email-address";
 import type { UserRole } from "@prisma/client";
 
 /** 요청을 수행한 주체가 어느 경로로 들어왔는지. */
@@ -15,9 +16,6 @@ export type Actor = {
   role: UserRole;
   source: ActorSource;
 };
-
-/** 이메일 최대 길이 (RFC 5321). 헤더로 들어오는 값이라 상한을 둔다. */
-const MAX_EMAIL_LENGTH = 254;
 
 /**
  * 서비스 토큰의 최소 길이.
@@ -159,8 +157,11 @@ async function serviceActor(req: Request, authorization: string): Promise<Actor 
   //
   // `mode: "insensitive"` + `findFirst` 로 푸는 방법은 쓰지 않는다. 대소문자만 다른 두 행이
   // 있으면 어느 쪽이 잡힐지 비결정적이고, 그 자체가 권한 우회 벡터가 된다.
-  // 여기서는 정확 일치만 하고, 저장 쪽 정규화는 별도로 다룬다.
-  const email = (req.headers.get("x-actor-email") ?? "").trim().toLowerCase();
+  //
+  // 정규화의 정의는 `lib/email-address.ts` 한 곳에 있다. 저장 쪽도 같은 함수를 쓴다 —
+  // 예전에는 여기(읽기)에만 있어서, 대소문자가 섞여 저장되면 승인된 계정이 영구 403 이
+  // 되는 함정이 있었다 (#105).
+  const email = normalizeEmail(req.headers.get("x-actor-email"));
   if (!email || email.length > MAX_EMAIL_LENGTH) {
     return NextResponse.json({ error: "X-Actor-Email 헤더가 필요합니다" }, { status: 400 });
   }
