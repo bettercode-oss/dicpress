@@ -258,13 +258,20 @@ nginx -t && systemctl reload nginx
 
 `nginx -t` 없이 reload하지 말 것 — 문법 오류면 nginx가 뜨지 않아 사이트 전체가 죽는다.
 
-**서버에 아직 반영되지 않은 항목** (반영했으면 지운다):
+**서버에 아직 반영되지 않은 항목** (반영했으면 지운다): **현재 없음.**
 
-- **인증 경로 속도 제한** (#104) — 세 파일이 함께 가야 한다.
-  `deploy/nginx-rate-limit.conf` → `/etc/nginx/conf.d/dicpress-rate-limit.conf`,
-  `deploy/nginx-proxy-headers.conf` → `/etc/nginx/snippets/dicpress-proxy.conf`,
-  그리고 사이트 파일에 `location ^~ /api/auth/webauthn/` · `location = /api/admin/signup`
-  두 블록. **하나라도 빠지면 `nginx -t` 가 실패한다** — 조용히 어긋나지는 않는다
+- 2026-08-30 (#104): 인증 경로 속도 제한 반영. `conf.d/dicpress-rate-limit.conf`(zone),
+  `snippets/dicpress-proxy.conf`(프록시 헤더), 사이트 파일의 두 `location` 블록.
+  `proxy_set_header` 목록은 이제 **파일 하나를 세 블록이 include** 한다 — 복사본이
+  뒤처지는 함정이 사라졌고, 파일이 없으면 `nginx -t` 가 크게 실패한다.
+
+  밖에서 실측 —
+
+  ```
+  /api/auth/webauthn/authenticate/options  21건 통과 후 429   (burst 20 + 리필 1)
+  /api/entry/… · /api/public · 공개 페이지   버킷이 빈 상태에서도 200
+  유효 토큰을 공개 URL 로                     401 (경계 그대로)
+  ```
 
 - 2026-08-26 (#94): `UPLOAD_DIR` 은 `.env.production` 과 standalone 사본 **양쪽에** 절대 경로로
   들어가 있고, nginx `alias` 도 같은 값을 가리킨다. 루프백 업로드 왕복으로 확인했다 —
