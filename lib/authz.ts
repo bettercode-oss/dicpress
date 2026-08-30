@@ -125,7 +125,52 @@ export async function requireActor(
     return NextResponse.json({ error: "권한 없음" }, { status: 403 });
   }
 
+  await recordWrite(actor, req);
   return actor;
+}
+
+/**
+ * 쓰기 요청을 `AuditLog` 에 남긴다 (#103).
+ *
+ * ## 무엇을 남기는 기록인가 — **결과가 아니라 «인가된 시도»다**
+ *
+ * 여기는 권한 확인이 끝난 직후이고 라우트 본문은 아직 실행되지 않았다. 그래서 이 행은
+ * "이 사람이 이 경로에 쓰기를 시도했고 권한은 있었다" 까지만 말한다. 그 뒤에 400(대상 규칙
+ * 위반)이나 409(중복)로 끝났을 수도 있다.
+ *
+ * 결과까지 남기려면 라우트마다 성공 지점에서 따로 불러야 하는데, 그러면 **새 라우트가
+ * 잊어버릴 수 있다.** 한 곳에서 걸러 두면 잊을 수 없다. 감사 기록의 목적이 "누가 무엇을
+ * 건드렸나" 를 되짚는 것이라면 시도 기록으로도 충분하고, 부족해지는 날 결과를 덧붙이면 된다.
+ *
+ * ## 읽기는 남기지 않는다
+ *
+ * GET 까지 남기면 행이 폭증하고 정작 중요한 변경이 묻힌다. 목록 화면 한 번이 수십 행이 된다.
+ *
+ * ## 실패해도 요청을 막지 않는다
+ *
+ * 기록이 안 됐다고 문서 저장을 실패시키는 것은 손해가 더 크다. 대신 조용히 넘기지 않고
+ * 경고를 남긴다 — 기록이 멈춘 것을 아무도 모르는 상태가 가장 나쁘다.
+ */
+async function recordWrite(actor: Actor, req: Request) {
+  if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return;
+
+  try {
+    // 쿼리스트링은 뺀다. 검색어 같은 값이 감사 기록에 섞여 들어갈 이유가 없다.
+    const path = new URL(req.url).pathname;
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: actor.id,
+        actorEmail: actor.email,
+        actorRole: actor.role,
+        source: actor.source,
+        method: req.method,
+        path,
+      },
+    });
+  } catch (e) {
+    console.warn(`[authz] 감사 기록에 실패했습니다 (${req.method}). 요청은 계속합니다.`, e);
+  }
 }
 
 async function resolveActor(req: Request): Promise<Actor | NextResponse> {

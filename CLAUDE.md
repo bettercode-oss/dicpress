@@ -172,6 +172,8 @@ if (actor instanceof NextResponse) return actor;
 ```
 
 세션과 서비스 토큰 **양쪽**을 받고, 어느 경로든 매 요청 DB에서 `role`·`status`를 다시 읽는다.
+권한 확인을 통과한 **쓰기 요청은 `AuditLog` 에 남는다**(#103). 읽기는 남기지 않는다 —
+목록 화면 한 번이 수십 행이 되어 정작 중요한 변경이 묻힌다.
 서버 컴포넌트에서는 `Request`가 없으므로 `getSessionActor()`를 쓴다.
 
 문서를 다루는 라우트는 `lib/document-access.ts`도 함께 쓴다 —
